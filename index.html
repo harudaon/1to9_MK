@@ -1,0 +1,192 @@
+<!-- ... existing code ... -->
+      const handleAdminAuthSubmit = (e) => {
+        e.preventDefault();
+        if (adminPassword === '0321') {
+          setUserRole('admin');
+          setIsPasswordModalOpen(false);
+          setAdminPassword('');
+          showToast("관리자 인증 완료. 강사 제어 센터가 활성화되었습니다.");
+        } else {
+          showToast("비밀번호가 올바르지 않습니다.", "error");
+        }
+      };
+
+      // 참가자 세션 참가 핸들러 (MASTER_LIST_KEY 선 검증 적용)
+      const handleParticipantJoin = (e) => {
+        e.preventDefault();
+        const trimmedCode = joinGameCode.trim().toUpperCase();
+
+        if (!trimmedCode || trimmedCode.length !== 6) {
+          showToast('6자리 세션 참가 코드를 정확히 입력해 주세요.', 'error');
+          return;
+        }
+
+        setIsJoining(true);
+
+        // 1) MASTER_LIST_KEY에서 세션 메타 정보 조회하여 즉각 검증
+        gun.get(MASTER_LIST_KEY).get(trimmedCode).once((data) => {
+          // GunDB 응답이 지연되거나 null인 경우를 대비한 방어 코드
+          if (!data || data === 'null') {
+            setIsJoining(false);
+            showToast('해당 코드로 개설된 세션을 찾을 수 없습니다. 코드를 확인해 주세요.', 'error');
+            return;
+          }
+
+          let sessionMeta;
+          try {
+            sessionMeta = typeof data === 'string' ? JSON.parse(data) : data;
+          } catch(err) {
+            sessionMeta = data;
+          }
+
+          // sessionMeta 예: { courseName, teamCount, gameCode, createdAt, ... }
+          const safeMeta = {
+            courseName: sessionMeta.courseName || '이름 없는 과정',
+            teamCount: sessionMeta.teamCount || 0,
+            gameCode: sessionMeta.gameCode || trimmedCode,
+            createdAt: sessionMeta.createdAt || Date.now()
+          };
+
+          // 2) 참가자용 로컬 세션/게임 상태 구성
+          const nextGameState = {
+            ...gameState,
+            gameCode: safeMeta.gameCode,
+            courseName: safeMeta.courseName,
+            teamCount: safeMeta.teamCount,
+            role: 'participant',
+            joinedAt: Date.now()
+          };
+
+          // 3) localStorage에 참가자 세션 일관성 있게 저장 (뒤로가기/재접속용)
+          try {
+            localStorage.setItem(
+              'market_sim_pro_v3_participant_session_' + safeMeta.gameCode,
+              JSON.stringify(nextGameState)
+            );
+          } catch (err) {
+            console.error('참가자 세션 저장 오류:', err);
+          }
+
+          // 4) 전역 상태 업데이트 (이후 useEffect에서 글로벌 상태 자동 동기화 진행)
+          setGameState(nextGameState);
+
+          // 5) 참가자 화면 전환: 팀 선택 화면
+          setUserRole('participant_select_team');
+          setIsJoining(false);
+          showToast(`[${safeMeta.courseName}] 과정 연결 완료. 팀을 선택해 주세요.`);
+        });
+      };
+
+      const handleSelectCard = (card) => {
+        const team = gameState.teams.find(t => t.id === selectedTeamId);
+<!-- ... existing code ... -->
+          {/* PARTICIPANT JOIN FLOW - INPUT SESSION CODE */}
+          {userRole === 'participant_join_flow' && (
+            <div className="flex-grow flex items-center justify-center px-4 py-12">
+              <div className="max-w-md w-full bg-[#121829] rounded-3xl border border-[#1E294D] p-6 shadow-xl text-center">
+                <h3 className="text-sm font-black text-white mb-2">시뮬레이션 세션 참가</h3>
+                <p className="text-[11px] text-slate-400 mb-6 leading-relaxed font-semibold">강사 전용 화면에 활성화되어 있는 6자리 세션 참가 코드(예: MK2047)를 기입하십시오.</p>
+                <form onSubmit={handleParticipantJoin} className="space-y-4">
+                  <input
+                    type="text"
+                    required
+                    maxLength={6}
+                    value={joinGameCode}
+                    onChange={(e) => setJoinGameCode(e.target.value)}
+                    placeholder="MK0000"
+                    className="w-full px-4 py-3 border border-[#1E294D] bg-[#0B0F19] text-white rounded-xl text-base font-bold outline-none focus:border-indigo-500 text-center font-mono uppercase tracking-widest"
+                  />
+                  {isJoining ? (
+                    <div className="bg-[#161D30] border border-[#1E294D] rounded-xl p-3 flex flex-col items-center justify-center">
+                      <div className="w-6 h-6 border-2 border-indigo-500/30 border-t-indigo-500 rounded-full animate-spin mb-2"></div>
+                      <span className="text-[10px] text-indigo-400 font-bold">과정 정보 동기화 중입니다...</span>
+                    </div>
+                  ) : (
+                    <div className="flex space-x-2">
+                      <button
+                        type="button"
+                        onClick={() => setUserRole('landing')}
+                        className="flex-1 py-3 bg-[#161D30] text-slate-400 rounded-xl text-xs font-black transition-colors"
+                      >
+                        메인으로
+                      </button>
+                      <button
+                        type="submit"
+                        className="flex-1 py-3 bg-gradient-to-r from-indigo-600 to-cyan-600 text-white rounded-xl text-xs font-black shadow-md transition-all active:scale-[0.98]"
+                      >
+                        코드 검증
+                      </button>
+                    </div>
+                  )}
+                </form>
+              </div>
+            </div>
+          )}
+
+          {}
+          {/* PARTICIPANT SELECT TEAM SCREEN */}
+          {userRole === 'participant_select_team' && (
+            <div className="flex-grow flex items-center justify-center px-4 py-12">
+              <div className="max-w-md w-full bg-[#121829] rounded-3xl border border-[#1E294D] p-6 shadow-xl text-center">
+                <h3 className="text-sm font-black text-white mb-1">[{gameState.courseName || '과정 정보 동기화 완료'}] 참가팀 지정</h3>
+                <p className="text-[10px] text-slate-400 mb-6 leading-relaxed font-semibold">귀사에 지정된 학습 그룹(팀)을 목록에서 클릭하여 가상 장비 접속을 승인해 주십시오.<br/><span className="text-amber-400 text-[9px]">* 1인 1팀만 선택 가능하며 접속 시 잠금 처리됩니다.</span></p>
+                
+                {gameState.teams && gameState.teams.length > 0 ? (
+                  <div className="grid grid-cols-2 gap-2.5 max-h-[280px] overflow-y-auto mb-6 pr-1">
+                    {gameState.teams.map(team => (
+                      <button
+                        key={team.id}
+                        disabled={team.isOccupied}
+                        onClick={() => {
+                          const nextTeams = gameState.teams.map(t => t.id === team.id ? { ...t, isOccupied: true } : t);
+                          const nextState = { ...gameState, teams: nextTeams };
+                          gun.get('market_sim_pro_v3_session_' + gameState.gameCode).get('global_state').put(JSON.stringify(nextState));
+                          
+                          setSelectedTeamId(team.id);
+                          setUserRole('gameplay');
+
+                          try {
+                            localStorage.setItem(
+                              'market_sim_pro_v3_participant_session_' + gameState.gameCode,
+                              JSON.stringify({ ...nextState, selectedTeamId: team.id })
+                            );
+                          } catch (err) {}
+
+                          showToast(`${team.name} 대시보드 인터페이스로 기동합니다.`);
+                        }}
+                        className={`p-3.5 rounded-xl border text-xs font-black transition-all text-center flex flex-col items-center justify-center ${
+                          team.isOccupied 
+                            ? 'bg-[#0B0F19] border-[#1E294D]/50 text-slate-600 cursor-not-allowed opacity-50'
+                            : 'border-[#1E294D] bg-[#161D30] hover:bg-[#1E294D] hover:border-indigo-400 text-slate-200 active:scale-95'
+                        }`}
+                      >
+                        <span>{team.name}</span>
+                        {team.isOccupied ? (
+                          <span className="text-[9px] text-red-400 font-bold mt-1">입장 마감 (접속중)</span>
+                        ) : (
+                          <span className="text-[9px] text-indigo-400 font-bold mt-1">입장 가능 (카드 {team.deck?.length || 18}장)</span>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="py-12 flex flex-col items-center justify-center mb-6">
+                    <div className="w-6 h-6 border-2 border-indigo-500/30 border-t-indigo-500 rounded-full animate-spin mb-3"></div>
+                    <p className="text-[11px] text-indigo-400 font-black">세부 데이터를 동기화 중입니다...</p>
+                    <p className="text-[9px] text-slate-500 mt-1">강사 기기와 실시간 연결을 구성하고 있습니다.</p>
+                  </div>
+                )}
+
+                <button
+                  onClick={() => setUserRole('participant_join_flow')}
+                  className="w-full py-2.5 bg-[#161D30] hover:bg-[#1E294B] text-slate-400 rounded-xl text-xs font-black transition-colors"
+                >
+                  이전 단계로 (코드 재입력)
+                </button>
+              </div>
+            </div>
+          )}
+
+          {}
+          {/* PARTICIPANT GAMEPLAY INTERFACE (MOBILE-FIRST) */}
+<!-- ... existing code ... -->
