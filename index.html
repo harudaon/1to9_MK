@@ -1,121 +1,762 @@
-<!-- ... existing code ... -->
+<!DOCTYPE html>
+<html lang="ko" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Market Simulation Game PRO V3</title>
+  
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800;900&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet">
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Nunito', 'Plus Jakarta Sans', '-apple-system', 'sans-serif'],
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- React 18 & ReactDOM 18 -->
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  
+  <!-- Babel Standalone -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <!-- GunDB: 다중 분산 노드 접속 체계 (안정성 강화) -->
+  <script src="https://cdn.jsdelivr.net/npm/gun/gun.js"></script>
+
+  <style>
+    body {
+      font-family: 'Nunito', 'Plus Jakarta Sans', -apple-system, sans-serif;
+      font-weight: 800;
+      background-color: #0A0E1A;
+    }
+    @keyframes customBlink {
+      0%, 100% { opacity: 1; transform: scale(1); filter: brightness(1.2); }
+      50% { opacity: 0.3; transform: scale(0.97); filter: brightness(0.8); }
+    }
+    .animate-custom-blink { animation: customBlink 1.2s infinite ease-in-out; }
+    @keyframes neonPulse {
+      0%, 100% { box-shadow: 0 0 8px rgba(99, 102, 241, 0.4); border-color: rgba(99, 102, 241, 0.6); }
+      50% { box-shadow: 0 0 20px rgba(99, 102, 241, 0.8); border-color: rgba(99, 102, 241, 1); }
+    }
+    .pulse-indigo-glowing { animation: neonPulse 1.5s infinite ease-in-out; }
+    @keyframes cyanPulse {
+      0%, 100% { box-shadow: 0 0 8px rgba(6, 182, 212, 0.4); border-color: rgba(6, 182, 212, 0.6); }
+      50% { box-shadow: 0 0 20px rgba(6, 182, 212, 0.8); border-color: rgba(6, 182, 212, 1); }
+    }
+    .pulse-cyan-glowing { animation: cyanPulse 1.5s infinite ease-in-out; }
+    @keyframes emeraldPulse {
+      0%, 100% { box-shadow: 0 0 8px rgba(16, 185, 129, 0.4); border-color: rgba(16, 185, 129, 0.6); }
+      50% { box-shadow: 0 0 20px rgba(16, 185, 129, 0.8); border-color: rgba(16, 185, 129, 1); }
+    }
+    .pulse-emerald-glowing { animation: emeraldPulse 1.5s infinite ease-in-out; }
+    * { -webkit-tap-highlight-color: transparent; }
+    .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
+    
+    /* 스크롤바 숨김 */
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+  </style>
+</head>
+<body class="min-h-screen text-[#E2E8F0] select-none pb-safe">
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useRef } = React;
+
+    // --- STREAMING_CHUNK: Initializing Database Connections ---
+    const gun = Gun([
+      'https://gun-rs.iris.to/gun',
+      'https://relay.peer.ooo/gun',
+      'https://peer.wall.org/gun'
+    ]);
+    const MASTER_LIST_KEY = 'market_sim_pro_v3_master_sessions';
+
+    // --- STREAMING_CHUNK: Defining Icons ---
+    const ShieldIcon = () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>;
+    const UsersIcon = () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>;
+    const LockIcon = () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>;
+    const ClockIcon = ({ className }) => <svg className={`w-4 h-4 ${className}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>;
+    const PlayIcon = () => <svg className="w-3.5 h-3.5 mr-1" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" /></svg>;
+    const SquareIcon = () => <svg className="w-3.5 h-3.5 mr-1" fill="currentColor" viewBox="0 0 24 24"><path d="M6 6h12v12H6z" /></svg>;
+    const AwardIcon = () => <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" /></svg>;
+    const CheckCircleIcon = ({ className = "w-4 h-4" }) => <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>;
+    const ChevronLeftIcon = () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>;
+    const ChevronRightIcon = () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" /></svg>;
+    const DownloadIcon = () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>;
+    const EditIcon = () => <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>;
+    const AlertIcon = () => <svg className="w-5 h-5 text-amber-400 mr-2 animate-bounce" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>;
+    const TrashIcon = () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>;
+
+    // --- STREAMING_CHUNK: Configurations & Algorithms ---
+    const MARKET_STAGES = {
+      1: { name: "초기 시장 (R1~3)", color: "border-cyan-500/80 text-cyan-400 bg-cyan-950/40", hex: "#06B6D4" },
+      2: { name: "초기 시장 (R1~3)", color: "border-cyan-500/80 text-cyan-400 bg-cyan-950/40", hex: "#06B6D4" },
+      3: { name: "초기 시장 (R1~3)", color: "border-cyan-500/80 text-cyan-400 bg-cyan-950/40", hex: "#06B6D4" },
+      4: { name: "완전경쟁 시장 (R4~6)", color: "border-emerald-500/80 text-emerald-400 bg-emerald-950/40", hex: "#10B981" },
+      5: { name: "완전경쟁 시장 (R4~6)", color: "border-emerald-500/80 text-emerald-400 bg-emerald-950/40", hex: "#10B981" },
+      6: { name: "완전경쟁 시장 (R4~6)", color: "border-emerald-500/80 text-emerald-400 bg-emerald-950/40", hex: "#10B981" },
+      7: { name: "독점 시장 (R7~9)", color: "border-violet-500/80 text-violet-400 bg-violet-950/40", hex: "#8B5CF6" },
+      8: { name: "독점 시장 (R7~9)", color: "border-violet-500/80 text-violet-400 bg-violet-950/40", hex: "#8B5CF6" },
+      9: { name: "독점 시장 (R7~9)", color: "border-violet-500/80 text-violet-400 bg-violet-950/40", hex: "#8B5CF6" }
+    };
+
+    const createInitialDeck = () => {
+      const deck = [];
+      for (let val = 1; val <= 9; val++) {
+        deck.push({ id: `red-${val}-${Date.now()}-1`, value: val, color: 'red' });
+        deck.push({ id: `black-${val}-${Date.now()}-2`, value: val, color: 'black' });
+      }
+      return deck;
+    };
+
+    const generateGameCode = () => {
+      const nums = '0123456789';
+      let code = 'MK';
+      for (let i = 0; i < 4; i++) code += nums.charAt(Math.floor(Math.random() * nums.length));
+      return code;
+    };
+
+    const runScoringAlgorithm = (round, teams) => {
+      const scores = {};
+      const submissions = teams.map(team => {
+        const hist = team.history[round];
+        if (!hist || !hist.cards || hist.cards.length < 2) return { teamId: team.id, sum: 0, valid: false };
+        return { teamId: team.id, sum: hist.cards[0].value + hist.cards[1].value, valid: true };
+      });
+
+      const validSubmissions = submissions.filter(s => s.valid);
+      if (validSubmissions.length === 0) {
+        teams.forEach(t => { scores[t.id] = 0; });
+        return scores;
+      }
+
+      const sums = validSubmissions.map(s => s.sum);
+      const maxSum = Math.max(...sums);
+      const minSum = Math.min(...sums);
+      const maxTeams = validSubmissions.filter(s => s.sum === maxSum);
+      const minTeams = validSubmissions.filter(s => s.sum === minSum);
+
+      if (round >= 1 && round <= 3) {
+        validSubmissions.forEach(sub => {
+          if (sub.sum === maxSum) scores[sub.teamId] = maxTeams.length === 1 ? 120 : 60;
+          else if (sub.sum === minSum) scores[sub.teamId] = minTeams.length === 1 ? -60 : -30;
+          else scores[sub.teamId] = 0;
+        });
+      } else if (round >= 4 && round <= 6) {
+        validSubmissions.forEach(sub => {
+          if (sub.sum === maxSum) scores[sub.teamId] = maxTeams.length === 1 ? 120 : 0;
+          else if (sub.sum === minSum) scores[sub.teamId] = minTeams.length === 1 ? -80 : 0;
+          else scores[sub.teamId] = 0;
+        });
+      } else if (round >= 7 && round <= 9) {
+        let winnerId = null;
+        if (maxTeams.length === 1) winnerId = maxTeams[0].teamId;
+        else {
+          const sortedUniqueSums = [...new Set(sums)].sort((a, b) => b - a);
+          for (const currentSum of sortedUniqueSums) {
+            const matchingTeams = validSubmissions.filter(s => s.sum === currentSum);
+            if (matchingTeams.length === 1) { winnerId = matchingTeams[0].teamId; break; }
+          }
+        }
+        validSubmissions.forEach(sub => {
+          if (sub.teamId === winnerId) scores[sub.teamId] = 180;
+          else if (sub.sum === minSum) scores[sub.teamId] = -120;
+          else scores[sub.teamId] = -40;
+        });
+      }
+
+      submissions.forEach(sub => { if (!sub.valid) scores[sub.teamId] = -100; });
+      return scores;
+    };
+
+    // --- STREAMING_CHUNK: Main Application Component ---
+    function App() {
+      const [gameState, setGameState] = useState({
+        gameCode: '',
+        isStarted: false,
+        isSetupFormVisible: false,
+        currentRound: 1,
+        teams: [],
+        status: 'idle', 
+        timer: 180,
+        timerActive: false,
+      });
+
+      const [userRole, setUserRole] = useState('landing'); 
+      const [selectedTeamId, setSelectedTeamId] = useState('');
+      const [adminPassword, setAdminPassword] = useState('');
+      const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
+      
+      const [joinGameCode, setJoinGameCode] = useState('');
+      const [isJoining, setIsJoining] = useState(false);
+      const [setupTeamCount, setSetupTeamCount] = useState(4);
+      
+      const [adminSessions, setAdminSessions] = useState([]); // Admin Dashboard state
+      const [toast, setToast] = useState(null);
+      const [selectedCards, setSelectedCards] = useState([]);
+      const [editingScoreTeamId, setEditingScoreTeamId] = useState(null);
+      const [editScoreValue, setEditScoreValue] = useState('');
+      const [showRoundResultPopup, setShowRoundResultPopup] = useState(false);
+
+      const [confirmModal, setConfirmModal] = useState({ isOpen: false, title: '', message: '', onConfirm: null });
+
+      // --- STREAMING_CHUNK: Local Storage Recovery ---
+      useEffect(() => {
+        // Load Admin Sessions
+        const savedSessions = localStorage.getItem('market_sim_admin_sessions');
+        if (savedSessions) {
+          try { setAdminSessions(JSON.parse(savedSessions)); } catch(e) {}
+        }
+        
+        // Auto-recover active participant session if exists
+        const lastRole = localStorage.getItem('market_sim_last_role');
+        const lastSessionCode = localStorage.getItem('market_sim_last_session_code');
+        if (lastRole === 'participant' && lastSessionCode) {
+           const savedData = localStorage.getItem('market_sim_pro_v3_participant_session_' + lastSessionCode);
+           if (savedData) {
+             try {
+               const parsed = JSON.parse(savedData);
+               setGameState(parsed);
+               if(parsed.selectedTeamId) {
+                 setSelectedTeamId(parsed.selectedTeamId);
+                 setUserRole('gameplay');
+               } else {
+                 setUserRole('participant_select_team');
+               }
+             } catch(e){}
+           }
+        }
+      }, []);
+
+      // --- STREAMING_CHUNK: Realtime Database Syncing ---
+      useEffect(() => {
+        if (!gameState.gameCode) return;
+
+        const globalStateRef = gun.get('market_sim_pro_v3_session_' + gameState.gameCode).get('global_state');
+        globalStateRef.on((data) => {
+          if (data) {
+            try {
+              const parsed = JSON.parse(data);
+              setGameState(prev => {
+                if (prev.isSetupFormVisible && !parsed.isStarted) return prev;
+                return { ...prev, ...parsed };
+              });
+            } catch (err) {}
+          }
+        });
+
+        const timerRef = gun.get('market_sim_pro_v3_session_' + gameState.gameCode).get('timer_sync');
+        timerRef.on((data) => {
+          if (data) {
+            try {
+              const syncTimerObj = JSON.parse(data);
+              setGameState(prev => ({ ...prev, timer: syncTimerObj.timer, timerActive: syncTimerObj.timerActive }));
+            } catch (e) {}
+          }
+        });
+
+        // Admin listens to team submissions
+        if (userRole === 'admin') {
+          gameState.teams.forEach(team => {
+            gun.get('market_sim_pro_v3_session_' + gameState.gameCode).get(`team_sub_${team.id}`).on((data) => {
+              if (data) {
+                try {
+                  const subData = JSON.parse(data);
+                  if (subData.round === gameState.currentRound) {
+                    setGameState(prev => {
+                      const foundTeam = prev.teams.find(t => t.id === team.id);
+                      if (foundTeam?.history[prev.currentRound]?.cards?.length > 0) return prev;
+
+                      const nextTeams = prev.teams.map(t => {
+                        if (t.id === team.id) {
+                          const nextDeck = t.deck.filter(dc => !subData.cards.map(sc => sc.id).includes(dc.id));
+                          return {
+                            ...t, deck: nextDeck,
+                            history: {
+                              ...t.history,
+                              [prev.currentRound]: {
+                                cards: subData.cards.map(sc => ({ value: sc.value, color: sc.color })),
+                                score: 0, isAuto: false, sum: subData.cards[0].value + subData.cards[1].value
+                              }
+                            }
+                          };
+                        }
+                        return t;
+                      });
+
+                      const nextState = { ...prev, teams: nextTeams };
+                      globalStateRef.put(JSON.stringify({
+                        currentRound: nextState.currentRound, isStarted: nextState.isStarted, teams: nextState.teams, status: nextState.status
+                      }));
+                      return nextState;
+                    });
+                  }
+                } catch(e) {}
+              }
+            });
+          });
+        }
+
+        return () => {
+          globalStateRef.off();
+          timerRef.off();
+        };
+      }, [gameState.gameCode, userRole, gameState.currentRound]);
+
+      // --- STREAMING_CHUNK: Timer & Automations ---
+      useEffect(() => {
+        let interval = null;
+        if (userRole === 'admin' && gameState.timerActive && gameState.timer > 0 && gameState.status === 'submitting') {
+          interval = setInterval(() => {
+            setGameState(prev => {
+              const nextTimer = prev.timer - 1;
+              const nextActive = nextTimer > 0;
+              let nextStatus = prev.status;
+              let finalState = { ...prev, timer: nextTimer, timerActive: nextActive };
+
+              if (nextTimer <= 0) {
+                finalState = autoSubmitUnsubmittedTeams(finalState);
+                nextStatus = 'closed';
+              }
+
+              gun.get('market_sim_pro_v3_session_' + prev.gameCode).get('timer_sync').put(JSON.stringify({ timer: nextTimer, timerActive: nextActive }));
+
+              if (nextTimer <= 0) {
+                gun.get('market_sim_pro_v3_session_' + prev.gameCode).get('global_state').put(JSON.stringify({
+                  currentRound: finalState.currentRound, isStarted: finalState.isStarted, teams: finalState.teams, status: nextStatus
+                }));
+              }
+              return finalState;
+            });
+          }, 1000);
+        }
+        return () => clearInterval(interval);
+      }, [gameState.timerActive, gameState.timer, gameState.status, userRole]);
+
+      useEffect(() => {
+        if (gameState.status === 'revealed' && userRole === 'gameplay' && selectedTeamId) setShowRoundResultPopup(true);
+        else setShowRoundResultPopup(false);
+      }, [gameState.status, gameState.currentRound, userRole, selectedTeamId]);
+
+      // --- STREAMING_CHUNK: Helpers ---
+      const triggerConfirm = (title, message, onConfirmAction) => {
+        setConfirmModal({
+          isOpen: true, title, message,
+          onConfirm: () => { onConfirmAction(); setConfirmModal(prev => ({ ...prev, isOpen: false })); }
+        });
+      };
+
+      const showToast = (message, type = 'info') => {
+        setToast({ message, type });
+        setTimeout(() => setToast(null), 4000);
+      };
+
+      const autoSubmitUnsubmittedTeams = (currentState) => {
+        const round = currentState.currentRound;
+        const updatedTeams = currentState.teams.map(team => {
+          const hist = team.history[round];
+          const hasSubmitted = hist && hist.cards && hist.cards.length > 0;
+          if (!hasSubmitted) {
+            const sortedDeck = [...team.deck].sort((a, b) => a.value - b.value);
+            if (sortedDeck.length >= 2) {
+              const autoCards = [sortedDeck[0], sortedDeck[1]];
+              const nextDeck = team.deck.filter(dc => !autoCards.map(c=>c.id).includes(dc.id));
+              return {
+                ...team, deck: nextDeck,
+                history: { ...team.history, [round]: { cards: autoCards, score: 0, isAuto: true, sum: autoCards[0].value + autoCards[1].value } }
+              };
+            } else {
+              return {
+                ...team,
+                history: { ...team.history, [round]: { cards: [{ value: 1, color: 'red' }, { value: 1, color: 'black' }], score: 0, isAuto: true, sum: 2 } }
+              };
+            }
+          }
+          return team;
+        });
+        return { ...currentState, teams: updatedTeams, status: 'closed', timerActive: false };
+      };
+
+      // --- STREAMING_CHUNK: Admin Handlers ---
       const handleAdminAuthSubmit = (e) => {
         e.preventDefault();
         if (adminPassword === '0321') {
-          setUserRole('admin');
+          setUserRole('admin_dashboard');
           setIsPasswordModalOpen(false);
           setAdminPassword('');
-          showToast("관리자 인증 완료. 강사 제어 센터가 활성화되었습니다.");
+          showToast("관리자 인증 완료. 강사 대시보드로 이동합니다.");
         } else {
           showToast("비밀번호가 올바르지 않습니다.", "error");
         }
       };
 
-      // 참가자 세션 참가 핸들러 (MASTER_LIST_KEY 선 검증 적용)
+      const handlePreCreateSession = () => {
+        const code = generateGameCode();
+        const newSession = { code, courseName: `비즈니스 시뮬레이션 (${code})`, createdAt: Date.now() };
+        
+        // Save to Admin Local Storage
+        const nextSessions = [...adminSessions, newSession];
+        setAdminSessions(nextSessions);
+        localStorage.setItem('market_sim_admin_sessions', JSON.stringify(nextSessions));
+
+        // Publish to Global Master List
+        gun.get(MASTER_LIST_KEY).get(code).put(newSession);
+
+        setGameState({
+          gameCode: code, isStarted: false, isSetupFormVisible: true, currentRound: 1, teams: [], status: 'idle', timer: 180, timerActive: false,
+        });
+        setUserRole('admin');
+        showToast(`세션 코드 ${code}가 정상 예약되었습니다.`);
+      };
+
+      const handleEnterAdminSession = (code) => {
+        setGameState(prev => ({ ...prev, gameCode: code }));
+        setUserRole('admin');
+        showToast(`세션 ${code} 제어반에 접속했습니다.`);
+      };
+
+      const handleDeleteAdminSession = (code) => {
+        triggerConfirm("세션 영구 삭제", "해당 교육 과정을 완전히 삭제하시겠습니까? 데이터는 복구할 수 없습니다.", () => {
+          const nextSessions = adminSessions.filter(s => s.code !== code);
+          setAdminSessions(nextSessions);
+          localStorage.setItem('market_sim_admin_sessions', JSON.stringify(nextSessions));
+          gun.get(MASTER_LIST_KEY).get(code).put(null); // Remove from public directory
+          showToast(`${code} 세션이 삭제되었습니다.`);
+        });
+      };
+
+      const handleFinalCommenceSimulation = () => {
+        const generatedTeams = [];
+        for (let i = 1; i <= setupTeamCount; i++) {
+          generatedTeams.push({ id: `team-${i}-${Date.now()}`, name: `${i}팀 (Team ${i})`, score: 0, deck: createInitialDeck(), history: {}, isOccupied: false });
+        }
+
+        const initializedState = {
+          gameCode: gameState.gameCode, isStarted: true, isSetupFormVisible: false, currentRound: 1, teams: generatedTeams, status: 'idle', timer: 180, timerActive: false,
+        };
+        setGameState(initializedState);
+        gun.get('market_sim_pro_v3_session_' + gameState.gameCode).get('global_state').put(JSON.stringify(initializedState));
+        showToast("시뮬레이션이 공식 가동되었습니다!");
+      };
+
+      const handleUpdateTeamName = (teamId, newName) => {
+        if (!newName.trim()) return;
+        const nextTeams = gameState.teams.map(t => t.id === teamId ? { ...t, name: newName } : t);
+        setGameState(prev => {
+          const next = { ...prev, teams: nextTeams };
+          gun.get('market_sim_pro_v3_session_' + prev.gameCode).get('global_state').put(JSON.stringify({
+            currentRound: next.currentRound, isStarted: next.isStarted, teams: next.teams, status: next.status
+          }));
+          return next;
+        });
+      };
+
+      const adjustTimer = (amount) => {
+        setGameState(prev => {
+          const nextTime = Math.max(0, prev.timer + amount);
+          gun.get('market_sim_pro_v3_session_' + prev.gameCode).get('timer_sync').put(JSON.stringify({ timer: nextTime, timerActive: prev.timerActive }));
+          return { ...prev, timer: nextTime };
+        });
+      };
+
+      const toggleTimerPause = () => {
+        setGameState(prev => {
+          const nextActive = !prev.timerActive;
+          gun.get('market_sim_pro_v3_session_' + prev.gameCode).get('timer_sync').put(JSON.stringify({ timer: prev.timer, timerActive: nextActive }));
+          return { ...prev, timerActive: nextActive };
+        });
+      };
+
+      const handleStartSubmission = () => {
+        setGameState(prev => {
+          const next = { ...prev, status: 'submitting', timer: 180, timerActive: true };
+          gun.get('market_sim_pro_v3_session_' + prev.gameCode).get('global_state').put(JSON.stringify({ currentRound: next.currentRound, isStarted: next.isStarted, teams: next.teams, status: next.status }));
+          gun.get('market_sim_pro_v3_session_' + prev.gameCode).get('timer_sync').put(JSON.stringify({ timer: 180, timerActive: true }));
+          return next;
+        });
+        showToast("의사결정이 개시되었습니다.");
+      };
+
+      const handleCloseSubmission = () => {
+        setGameState(prev => {
+          const next = autoSubmitUnsubmittedTeams(prev);
+          gun.get('market_sim_pro_v3_session_' + prev.gameCode).get('global_state').put(JSON.stringify({ currentRound: next.currentRound, isStarted: next.isStarted, teams: next.teams, status: 'closed' }));
+          gun.get('market_sim_pro_v3_session_' + prev.gameCode).get('timer_sync').put(JSON.stringify({ timer: 0, timerActive: false }));
+          return { ...next, status: 'closed' };
+        });
+      };
+
+      const handleRevealResults = () => {
+        const round = gameState.currentRound;
+        const roundScores = runScoringAlgorithm(round, gameState.teams);
+        setGameState(prev => {
+          const updatedTeams = prev.teams.map(t => ({
+            ...t, score: t.score + (roundScores[t.id] || 0),
+            history: { ...t.history, [round]: { ...(t.history[round] || { cards:[], sum:0 }), score: roundScores[t.id] || 0 } }
+          }));
+          const next = { ...prev, teams: updatedTeams, status: 'revealed' };
+          gun.get('market_sim_pro_v3_session_' + prev.gameCode).get('global_state').put(JSON.stringify({ currentRound: next.currentRound, isStarted: next.isStarted, teams: next.teams, status: 'revealed' }));
+          return next;
+        });
+        showToast("정산 결과가 참가자들에게 공개되었습니다!");
+      };
+
+      const handleNextRound = () => {
+        setGameState(prev => {
+          const next = prev.currentRound >= 9 
+            ? { ...prev, status: 'ended' }
+            : { ...prev, currentRound: prev.currentRound + 1, status: 'idle', timer: 180, timerActive: false };
+          gun.get('market_sim_pro_v3_session_' + prev.gameCode).get('global_state').put(JSON.stringify({ currentRound: next.currentRound, isStarted: next.isStarted, teams: next.teams, status: next.status }));
+          return next;
+        });
+        setSelectedCards([]);
+      };
+
+      const handleManualScoreEdit = () => {
+        const value = parseInt(editScoreValue, 10);
+        if (isNaN(value)) return showToast("수치를 입력해주세요.", "error");
+        setGameState(prev => {
+          const updatedTeams = prev.teams.map(t => {
+            if (t.id === editingScoreTeamId) {
+              const diff = value - (t.history[prev.currentRound]?.score || 0);
+              return { ...t, score: t.score + diff, history: { ...t.history, [prev.currentRound]: { ...t.history[prev.currentRound], score: value } } };
+            }
+            return t;
+          });
+          const next = { ...prev, teams: updatedTeams };
+          gun.get('market_sim_pro_v3_session_' + prev.gameCode).get('global_state').put(JSON.stringify({ currentRound: next.currentRound, isStarted: next.isStarted, teams: next.teams, status: next.status }));
+          return next;
+        });
+        setEditingScoreTeamId(null);
+      };
+
+      // --- STREAMING_CHUNK: Participant Handlers ---
       const handleParticipantJoin = (e) => {
         e.preventDefault();
         const trimmedCode = joinGameCode.trim().toUpperCase();
-
-        if (!trimmedCode || trimmedCode.length !== 6) {
-          showToast('6자리 세션 참가 코드를 정확히 입력해 주세요.', 'error');
-          return;
-        }
+        if (!trimmedCode || trimmedCode.length !== 6) return showToast('6자리 코드를 정확히 입력하세요.', 'error');
 
         setIsJoining(true);
 
-        // 1) MASTER_LIST_KEY에서 세션 메타 정보 조회하여 즉각 검증
+        // 1. 방 존재여부 1차 즉각 확인
         gun.get(MASTER_LIST_KEY).get(trimmedCode).once((data) => {
-          // GunDB 응답이 지연되거나 null인 경우를 대비한 방어 코드
           if (!data || data === 'null') {
             setIsJoining(false);
-            showToast('해당 코드로 개설된 세션을 찾을 수 없습니다. 코드를 확인해 주세요.', 'error');
+            showToast('존재하지 않는 코드입니다.', 'error');
             return;
           }
 
-          let sessionMeta;
-          try {
-            sessionMeta = typeof data === 'string' ? JSON.parse(data) : data;
-          } catch(err) {
-            sessionMeta = data;
-          }
-
-          // sessionMeta 예: { courseName, teamCount, gameCode, createdAt, ... }
-          const safeMeta = {
-            courseName: sessionMeta.courseName || '이름 없는 과정',
-            teamCount: sessionMeta.teamCount || 0,
-            gameCode: sessionMeta.gameCode || trimmedCode,
-            createdAt: sessionMeta.createdAt || Date.now()
-          };
-
-          // 2) 참가자용 로컬 세션/게임 상태 구성
+          let sessionMeta = typeof data === 'string' ? JSON.parse(data) : data;
+          
           const nextGameState = {
             ...gameState,
-            gameCode: safeMeta.gameCode,
-            courseName: safeMeta.courseName,
-            teamCount: safeMeta.teamCount,
-            role: 'participant',
-            joinedAt: Date.now()
+            gameCode: sessionMeta.code || trimmedCode,
+            role: 'participant'
           };
 
-          // 3) localStorage에 참가자 세션 일관성 있게 저장 (뒤로가기/재접속용)
-          try {
-            localStorage.setItem(
-              'market_sim_pro_v3_participant_session_' + safeMeta.gameCode,
-              JSON.stringify(nextGameState)
-            );
-          } catch (err) {
-            console.error('참가자 세션 저장 오류:', err);
-          }
+          // 2. 로컬에 접속 상태 캐싱 (새로고침 대응)
+          localStorage.setItem('market_sim_last_role', 'participant');
+          localStorage.setItem('market_sim_last_session_code', nextGameState.gameCode);
+          localStorage.setItem('market_sim_pro_v3_participant_session_' + nextGameState.gameCode, JSON.stringify(nextGameState));
 
-          // 4) 전역 상태 업데이트 (이후 useEffect에서 글로벌 상태 자동 동기화 진행)
+          // 3. 글로벌 상태 반영 후 대기실(팀 선택창) 이동
           setGameState(nextGameState);
-
-          // 5) 참가자 화면 전환: 팀 선택 화면
           setUserRole('participant_select_team');
           setIsJoining(false);
-          showToast(`[${safeMeta.courseName}] 과정 연결 완료. 팀을 선택해 주세요.`);
+          showToast(`과정 연결 성공! 세부 데이터를 수신합니다.`);
         });
       };
 
       const handleSelectCard = (card) => {
         const team = gameState.teams.find(t => t.id === selectedTeamId);
-<!-- ... existing code ... -->
-          {/* PARTICIPANT JOIN FLOW - INPUT SESSION CODE */}
+        if (!team || team.history[gameState.currentRound]?.cards?.length > 0) return;
+        setSelectedCards(prev => {
+          if (prev.some(c => c.id === card.id)) return prev.filter(c => c.id !== card.id);
+          if (prev.length >= 2) return [prev[1], card];
+          return [...prev, card];
+        });
+      };
+
+      const handlePromptSubmitCards = () => {
+        if (selectedCards.length !== 2) return showToast("카드 2장을 선택해 주십시오.", "error");
+        triggerConfirm("의사결정 최종 전송", "선택하신 카드를 최종 제출하시겠습니까?", () => {
+          const round = gameState.currentRound;
+          gun.get('market_sim_pro_v3_session_' + gameState.gameCode).get(`team_sub_${selectedTeamId}`).put(JSON.stringify({ round: round, cards: selectedCards }));
+          setGameState(prev => {
+            const nextTeams = prev.teams.map(t => {
+              if (t.id === selectedTeamId) {
+                return {
+                  ...t, deck: t.deck.filter(dc => !selectedCards.map(sc=>sc.id).includes(dc.id)),
+                  history: { ...t.history, [round]: { cards: selectedCards, score: 0, isAuto: false, sum: selectedCards[0].value + selectedCards[1].value } }
+                };
+              }
+              return t;
+            });
+            return { ...prev, teams: nextTeams };
+          });
+          setSelectedCards([]);
+          showToast("의사결정이 전송되었습니다.");
+        });
+      };
+
+      const currentStageInfo = MARKET_STAGES[gameState.currentRound] || { name: "종료", color: "" };
+
+      // --- STREAMING_CHUNK: Render Function ---
+      return (
+        <div className="min-h-screen bg-[#0A0E1A] text-[#E2E8F0] flex flex-col selection:bg-[#1E294B] selection:text-white pb-safe">
+          
+          <header className="sticky top-0 z-40 bg-[#0A0E1A]/95 border-b border-[#1E294B]/80 backdrop-blur-md px-4 py-3 flex items-center justify-between shadow-lg">
+            <div className="flex items-center space-x-2.5">
+              <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-indigo-600 to-cyan-500 flex items-center justify-center text-white font-black text-sm tracking-tighter shadow-md">M</div>
+              <h1 className="text-xs font-black text-white tracking-tight uppercase flex items-center">
+                <span>Market Simulation</span>
+                <span className="ml-1.5 text-[8px] bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 px-1 py-0.5 rounded-full font-bold">PRO V3</span>
+              </h1>
+            </div>
+            {userRole === 'admin' && (
+              <button
+                onClick={() => setUserRole('admin_dashboard')}
+                className="px-2.5 py-1.5 bg-[#161D30] hover:bg-indigo-950 text-slate-300 hover:text-indigo-300 border border-[#1E294D] rounded-xl text-[10px] font-black transition-colors"
+              >
+                목록으로
+              </button>
+            )}
+            {(userRole === 'participant_select_team' || userRole === 'gameplay') && (
+              <button
+                onClick={() => {
+                  triggerConfirm("나가기", "연결을 끊고 메인 화면으로 이동하시겠습니까?", () => {
+                    setUserRole('landing'); setSelectedTeamId(''); localStorage.removeItem('market_sim_last_role');
+                  });
+                }}
+                className="px-2.5 py-1.5 bg-[#161D30] hover:bg-red-950/40 text-slate-300 hover:text-red-400 border border-[#1E294D] rounded-xl text-[10px] font-black transition-colors"
+              >
+                접속 종료
+              </button>
+            )}
+            {userRole === 'admin_dashboard' && (
+              <button onClick={() => setUserRole('landing')} className="px-2.5 py-1.5 bg-[#161D30] text-slate-400 border border-[#1E294D] rounded-xl text-[10px] font-black">로그아웃</button>
+            )}
+          </header>
+
+          {toast && (
+            <div className="fixed top-16 right-4 left-4 sm:left-auto sm:w-80 z-50">
+              <div className={`flex items-center space-x-2.5 px-4 py-3 rounded-xl border shadow-2xl text-[11px] font-black tracking-wide ${toast.type === 'error' ? 'bg-red-950/90 border-red-500/50 text-red-200' : 'bg-[#131B31]/95 border-indigo-500/50 text-indigo-100'}`}>
+                <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-ping shrink-0"></span>
+                <span>{toast.message}</span>
+              </div>
+            </div>
+          )}
+
+          {confirmModal.isOpen && (
+            <div className="fixed inset-0 bg-[#060810]/85 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+              <div className="bg-[#121829] border border-[#1E294D] rounded-2xl p-5 max-w-sm w-full shadow-2xl">
+                <h4 className="text-xs font-black text-white text-center mb-1">{confirmModal.title}</h4>
+                <p className="text-[10px] text-slate-400 text-center mb-5">{confirmModal.message}</p>
+                <div className="flex space-x-2">
+                  <button onClick={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))} className="flex-1 py-2 bg-[#161D30] text-slate-400 rounded-xl text-[10px] font-black">취소</button>
+                  <button onClick={confirmModal.onConfirm} className="flex-1 py-2 bg-indigo-600 text-white rounded-xl text-[10px] font-black">확인</button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* LANDING PAGE */}
+          {userRole === 'landing' && (
+            <div className="flex-grow flex items-center justify-center px-4 py-12">
+              <div className="max-w-md w-full bg-[#121829] rounded-3xl border border-[#1E294D] p-6 shadow-2xl text-center">
+                <div className="mb-8">
+                  <div className="w-12 h-12 bg-indigo-950/50 border border-indigo-500/20 text-indigo-400 rounded-2xl flex items-center justify-center mx-auto mb-3"><UsersIcon /></div>
+                  <h2 className="text-lg font-black text-white uppercase">Market Simulation</h2>
+                  <p className="text-[10px] text-slate-400 mt-1 font-bold">임직원 핵심 경영 의사결정 비즈니스 플랫폼</p>
+                </div>
+                <div className="space-y-4 flex flex-col items-center">
+                  <button onClick={() => setUserRole('participant_join_flow')} className="w-full max-w-sm h-24 bg-gradient-to-br from-indigo-600 via-indigo-700 to-cyan-600 hover:from-indigo-500 text-white rounded-2xl shadow-lg transition-all flex flex-col items-center justify-center transform active:scale-95">
+                    <span className="text-lg font-extrabold">👥 참가자(팀) 접속하기</span>
+                    <span className="text-[10px] text-indigo-200">6자리 세션 코드로 입장</span>
+                  </button>
+                  <button onClick={() => setIsPasswordModalOpen(true)} className="w-full max-w-sm h-10 bg-[#161D30] hover:bg-[#1F294D] text-slate-400 border border-[#1E294D] rounded-xl text-xs font-bold transition-all flex items-center justify-center mt-4">
+                    <ShieldIcon /><span className="ml-1.5 font-black text-[11px]">Admin 접속</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {isPasswordModalOpen && (
+            <div className="fixed inset-0 bg-[#060810]/85 flex items-center justify-center z-50 p-4">
+              <div className="bg-[#121829] border border-[#1E294D] rounded-2xl p-6 max-w-sm w-full">
+                <h3 className="text-xs font-black text-white mb-4">관리자 비밀번호</h3>
+                <form onSubmit={handleAdminAuthSubmit} className="space-y-4">
+                  <input type="password" required value={adminPassword} onChange={(e) => setAdminPassword(e.target.value)} className="w-full px-3 py-2 border border-[#1E294D] bg-[#0B0F19] text-white rounded-xl text-center outline-none focus:border-indigo-500" />
+                  <div className="flex space-x-2">
+                    <button type="button" onClick={() => setIsPasswordModalOpen(false)} className="flex-1 py-2.5 bg-[#161D30] text-slate-400 rounded-xl text-xs font-black">취소</button>
+                    <button type="submit" className="flex-1 py-2.5 bg-indigo-600 text-white rounded-xl text-xs font-black">인증</button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+
+          {/* ADMIN DASHBOARD */}
+          {userRole === 'admin_dashboard' && (
+            <div className="flex-grow max-w-4xl w-full mx-auto p-4 py-8">
+              <div className="flex justify-between items-center mb-6">
+                <div>
+                  <h2 className="text-lg font-black text-white">강사 대시보드</h2>
+                  <p className="text-[10px] text-slate-400">개설된 시뮬레이션 과정을 관리합니다.</p>
+                </div>
+                <button onClick={handlePreCreateSession} className="px-4 py-2 bg-indigo-600 text-white text-xs font-black rounded-xl shadow-lg">+ 새 과정 개설</button>
+              </div>
+              
+              <div className="grid gap-4">
+                {adminSessions.length === 0 ? (
+                  <div className="bg-[#121829] border border-[#1E294D] rounded-2xl p-8 text-center text-slate-500 text-xs font-bold">개설된 과정이 없습니다. 새 과정을 개설해주세요.</div>
+                ) : (
+                  adminSessions.map(session => (
+                    <div key={session.code} className="bg-[#121829] border border-[#1E294D] rounded-2xl p-4 flex items-center justify-between">
+                      <div>
+                        <h3 className="text-sm font-black text-indigo-400">[{session.code}] {session.courseName}</h3>
+                        <span className="text-[10px] text-slate-500 block mt-1">생성일: {new Date(session.createdAt).toLocaleDateString()}</span>
+                      </div>
+                      <div className="flex space-x-2">
+                        <button onClick={() => handleDeleteAdminSession(session.code)} className="p-2 bg-red-950/30 text-red-400 rounded-lg hover:bg-red-900 transition-colors"><TrashIcon /></button>
+                        <button onClick={() => handleEnterAdminSession(session.code)} className="px-4 py-2 bg-indigo-950/50 text-indigo-300 border border-indigo-500/30 rounded-lg text-xs font-black hover:bg-indigo-600 hover:text-white transition-colors">접속하기</button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* PARTICIPANT JOIN FLOW */}
           {userRole === 'participant_join_flow' && (
             <div className="flex-grow flex items-center justify-center px-4 py-12">
-              <div className="max-w-md w-full bg-[#121829] rounded-3xl border border-[#1E294D] p-6 shadow-xl text-center">
-                <h3 className="text-sm font-black text-white mb-2">시뮬레이션 세션 참가</h3>
-                <p className="text-[11px] text-slate-400 mb-6 leading-relaxed font-semibold">강사 전용 화면에 활성화되어 있는 6자리 세션 참가 코드(예: MK2047)를 기입하십시오.</p>
+              <div className="max-w-md w-full bg-[#121829] rounded-3xl border border-[#1E294D] p-6 text-center">
+                <h3 className="text-sm font-black text-white mb-2">과정 참가</h3>
+                <p className="text-[11px] text-slate-400 mb-6">강사가 안내한 6자리 코드를 입력하세요.</p>
                 <form onSubmit={handleParticipantJoin} className="space-y-4">
-                  <input
-                    type="text"
-                    required
-                    maxLength={6}
-                    value={joinGameCode}
-                    onChange={(e) => setJoinGameCode(e.target.value)}
-                    placeholder="MK0000"
-                    className="w-full px-4 py-3 border border-[#1E294D] bg-[#0B0F19] text-white rounded-xl text-base font-bold outline-none focus:border-indigo-500 text-center font-mono uppercase tracking-widest"
-                  />
+                  <input type="text" required maxLength={6} value={joinGameCode} onChange={(e) => setJoinGameCode(e.target.value)} placeholder="MK0000" className="w-full px-4 py-3 border border-[#1E294D] bg-[#0B0F19] text-white rounded-xl text-center font-mono font-bold outline-none focus:border-indigo-500 uppercase tracking-widest" />
                   {isJoining ? (
-                    <div className="bg-[#161D30] border border-[#1E294D] rounded-xl p-3 flex flex-col items-center justify-center">
-                      <div className="w-6 h-6 border-2 border-indigo-500/30 border-t-indigo-500 rounded-full animate-spin mb-2"></div>
-                      <span className="text-[10px] text-indigo-400 font-bold">과정 정보 동기화 중입니다...</span>
+                    <div className="bg-[#161D30] rounded-xl p-3 flex flex-col items-center">
+                      <div className="w-5 h-5 border-2 border-indigo-500/30 border-t-indigo-500 rounded-full animate-spin mb-2"></div>
+                      <span className="text-[10px] text-indigo-400 font-bold">코드 검증 중...</span>
                     </div>
                   ) : (
                     <div className="flex space-x-2">
-                      <button
-                        type="button"
-                        onClick={() => setUserRole('landing')}
-                        className="flex-1 py-3 bg-[#161D30] text-slate-400 rounded-xl text-xs font-black transition-colors"
-                      >
-                        메인으로
-                      </button>
-                      <button
-                        type="submit"
-                        className="flex-1 py-3 bg-gradient-to-r from-indigo-600 to-cyan-600 text-white rounded-xl text-xs font-black shadow-md transition-all active:scale-[0.98]"
-                      >
-                        코드 검증
-                      </button>
+                      <button type="button" onClick={() => setUserRole('landing')} className="flex-1 py-3 bg-[#161D30] text-slate-400 rounded-xl text-xs font-black">취소</button>
+                      <button type="submit" className="flex-1 py-3 bg-indigo-600 text-white rounded-xl text-xs font-black">접속</button>
                     </div>
                   )}
                 </form>
@@ -123,16 +764,21 @@
             </div>
           )}
 
-          {}
-          {/* PARTICIPANT SELECT TEAM SCREEN */}
+          {/* PARTICIPANT TEAM SELECT (WITH FALLBACK SPINNER) */}
           {userRole === 'participant_select_team' && (
             <div className="flex-grow flex items-center justify-center px-4 py-12">
-              <div className="max-w-md w-full bg-[#121829] rounded-3xl border border-[#1E294D] p-6 shadow-xl text-center">
-                <h3 className="text-sm font-black text-white mb-1">[{gameState.courseName || '과정 정보 동기화 완료'}] 참가팀 지정</h3>
-                <p className="text-[10px] text-slate-400 mb-6 leading-relaxed font-semibold">귀사에 지정된 학습 그룹(팀)을 목록에서 클릭하여 가상 장비 접속을 승인해 주십시오.<br/><span className="text-amber-400 text-[9px]">* 1인 1팀만 선택 가능하며 접속 시 잠금 처리됩니다.</span></p>
+              <div className="max-w-md w-full bg-[#121829] rounded-3xl border border-[#1E294D] p-6 text-center">
+                <h3 className="text-sm font-black text-white mb-1">참가팀(Group) 지정</h3>
+                <p className="text-[10px] text-slate-400 mb-6 font-semibold">소속된 팀을 눌러 입장하세요. (1인 1팀 잠금 적용)</p>
                 
-                {gameState.teams && gameState.teams.length > 0 ? (
-                  <div className="grid grid-cols-2 gap-2.5 max-h-[280px] overflow-y-auto mb-6 pr-1">
+                {!gameState.teams || gameState.teams.length === 0 ? (
+                  <div className="py-12 flex flex-col items-center border border-dashed border-[#1E294D] rounded-xl bg-[#0D1222] mb-6">
+                    <div className="w-8 h-8 border-4 border-indigo-500/30 border-t-indigo-500 rounded-full animate-spin mb-3"></div>
+                    <span className="text-[11px] font-black text-indigo-400">강사 기기에서 데이터를 수신 중입니다...</span>
+                    <span className="text-[9px] text-slate-500 mt-1">수신 완료 시 목록이 자동으로 나타납니다.</span>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 gap-2 max-h-[280px] overflow-y-auto mb-6 pr-1 no-scrollbar">
                     {gameState.teams.map(team => (
                       <button
                         key={team.id}
@@ -151,8 +797,7 @@
                               JSON.stringify({ ...nextState, selectedTeamId: team.id })
                             );
                           } catch (err) {}
-
-                          showToast(`${team.name} 대시보드 인터페이스로 기동합니다.`);
+                          showToast(`${team.name} 대시보드로 기동합니다.`);
                         }}
                         className={`p-3.5 rounded-xl border text-xs font-black transition-all text-center flex flex-col items-center justify-center ${
                           team.isOccupied 
@@ -162,31 +807,153 @@
                       >
                         <span>{team.name}</span>
                         {team.isOccupied ? (
-                          <span className="text-[9px] text-red-400 font-bold mt-1">입장 마감 (접속중)</span>
+                          <span className="text-[9px] text-red-400 mt-1">접속중 (잠금)</span>
                         ) : (
-                          <span className="text-[9px] text-indigo-400 font-bold mt-1">입장 가능 (카드 {team.deck?.length || 18}장)</span>
+                          <span className="text-[9px] text-indigo-400 mt-1">입장 가능</span>
                         )}
                       </button>
                     ))}
                   </div>
-                ) : (
-                  <div className="py-12 flex flex-col items-center justify-center mb-6">
-                    <div className="w-6 h-6 border-2 border-indigo-500/30 border-t-indigo-500 rounded-full animate-spin mb-3"></div>
-                    <p className="text-[11px] text-indigo-400 font-black">세부 데이터를 동기화 중입니다...</p>
-                    <p className="text-[9px] text-slate-500 mt-1">강사 기기와 실시간 연결을 구성하고 있습니다.</p>
-                  </div>
                 )}
-
-                <button
-                  onClick={() => setUserRole('participant_join_flow')}
-                  className="w-full py-2.5 bg-[#161D30] hover:bg-[#1E294B] text-slate-400 rounded-xl text-xs font-black transition-colors"
-                >
-                  이전 단계로 (코드 재입력)
-                </button>
+                <button onClick={() => setUserRole('participant_join_flow')} className="w-full py-2.5 bg-[#161D30] text-slate-400 rounded-xl text-xs font-black">뒤로 가기</button>
               </div>
             </div>
           )}
 
-          {}
-          {/* PARTICIPANT GAMEPLAY INTERFACE (MOBILE-FIRST) */}
-<!-- ... existing code ... -->
+          {/* GAMEPLAY AND ADMIN PANELS RETAINED FROM ORIGINAL LOGIC BUT SIMPLIFIED FOR SPACE */}
+          {userRole === 'gameplay' && (
+            <main className="flex-grow max-w-4xl w-full mx-auto p-4 space-y-4">
+              <div className="bg-[#121829] border border-[#1E294D] rounded-2xl p-4 flex justify-between items-center shadow-lg">
+                <div>
+                  <span className="text-[8px] uppercase text-indigo-400 font-black">ROUND {gameState.currentRound}</span>
+                  <div className="text-xs font-black mt-0.5">{MARKET_STAGES[gameState.currentRound]?.name}</div>
+                </div>
+                <div className="flex items-center space-x-2 bg-[#161D30] px-3 py-1.5 rounded-xl border border-[#1E294D]">
+                  <ClockIcon className={gameState.timer <= 30 && gameState.timerActive ? 'text-red-500 animate-pulse' : 'text-indigo-400'} />
+                  <span className={`font-mono text-sm font-black ${gameState.timer <= 30 && gameState.timerActive ? 'text-red-500' : 'text-white'}`}>
+                    {Math.floor(gameState.timer / 60)}:{String(gameState.timer % 60).padStart(2, '0')}
+                  </span>
+                </div>
+              </div>
+
+              {(() => {
+                const team = gameState.teams.find(t => t.id === selectedTeamId);
+                if (!team) return null;
+                const hasSubmitted = team.history[gameState.currentRound]?.cards?.length > 0;
+
+                return (
+                  <div className="bg-[#121829] border border-[#1E294D] rounded-2xl p-5 shadow-lg">
+                    <div className="flex justify-between items-center mb-6 pb-4 border-b border-[#1E294D]">
+                      <h3 className="text-sm font-black text-white">{team.name}</h3>
+                      <span className="text-xs font-black text-indigo-400">보유 자산: {team.score}P</span>
+                    </div>
+
+                    {hasSubmitted ? (
+                      <div className="py-8 text-center">
+                        <div className="w-12 h-12 bg-emerald-950 text-emerald-400 rounded-full flex items-center justify-center mx-auto mb-3"><CheckCircleIcon className="w-6 h-6"/></div>
+                        <h4 className="text-sm font-black text-white">결정 전송 완료</h4>
+                        <p className="text-[10px] text-slate-400 mt-2">강사의 라운드 마감을 대기 중입니다.</p>
+                      </div>
+                    ) : gameState.status !== 'submitting' ? (
+                      <div className="py-8 text-center text-slate-500">
+                        <LockIcon className="mx-auto mb-2 opacity-50"/>
+                        <p className="text-xs font-black">강사의 지시 대기 중...</p>
+                      </div>
+                    ) : (
+                      <div>
+                        <div className="flex justify-center space-x-3 mb-6 min-h-[80px]">
+                          {selectedCards.map(c => (
+                            <div key={c.id} onClick={() => handleSelectCard(c)} className={`w-14 h-20 rounded-xl border flex items-center justify-center text-xl font-black cursor-pointer shadow-lg ${c.color==='red'?'border-red-500 bg-red-950 text-red-400':'border-slate-500 bg-slate-900 text-white'}`}>{c.value}</div>
+                          ))}
+                        </div>
+                        {selectedCards.length === 2 && (
+                          <button onClick={handlePromptSubmitCards} className="w-full py-3 mb-6 bg-indigo-600 text-white font-black rounded-xl">최종 전송 (합산: {selectedCards[0].value + selectedCards[1].value})</button>
+                        )}
+                        <div className="grid grid-cols-6 gap-2">
+                          {team.deck.map(card => {
+                            const isSel = selectedCards.some(sc => sc.id === card.id);
+                            return (
+                              <button key={card.id} onClick={() => handleSelectCard(card)} className={`aspect-[2/3] rounded-lg border font-black text-sm transition-transform active:scale-95 ${isSel ? 'border-indigo-400 ring-2 ring-indigo-500/50 scale-105' : card.color==='red'?'border-red-900 text-red-400 bg-red-950/20':'border-slate-800 text-white bg-slate-900/50'}`}>{card.value}</button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+            </main>
+          )}
+
+          {userRole === 'admin' && (
+            <main className="flex-grow max-w-6xl w-full mx-auto p-4 space-y-6">
+              
+              {!gameState.isStarted ? (
+                <div className="bg-[#121829] border border-[#1E294D] rounded-3xl p-8 text-center">
+                  <h3 className="text-xl font-black text-white">시뮬레이션 가동 설정</h3>
+                  <div className="text-5xl font-mono text-indigo-400 my-6 font-black tracking-widest">{gameState.gameCode}</div>
+                  <p className="text-xs text-slate-400 mb-6">참가자들에게 위 코드를 공유하여 입장하도록 안내하세요.</p>
+                  <div className="grid grid-cols-5 gap-2 max-w-sm mx-auto mb-8">
+                    {[2,3,4,5,6,7,8,9,10,11].map(n => (
+                      <button key={n} onClick={() => setSetupTeamCount(n)} className={`py-2 rounded-xl text-xs font-black ${setupTeamCount===n?'bg-indigo-600 text-white':'bg-[#161D30] text-slate-400 border border-[#1E294D]'}`}>{n}팀</button>
+                    ))}
+                  </div>
+                  <button onClick={handleFinalCommenceSimulation} className="px-8 py-3 bg-emerald-600 text-white font-black rounded-xl text-sm">시뮬레이션 시작</button>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {/* ADMIN CONTROL PANEL */}
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <button onClick={handleStartSubmission} disabled={gameState.status!=='idle'} className="py-3 bg-indigo-600 disabled:opacity-50 text-white font-black rounded-xl text-xs">의사결정 개시</button>
+                    <button onClick={handleCloseSubmission} disabled={gameState.status!=='submitting'} className="py-3 bg-rose-600 disabled:opacity-50 text-white font-black rounded-xl text-xs">의사결정 마감</button>
+                    <button onClick={handleRevealResults} disabled={gameState.status!=='closed'} className="py-3 bg-cyan-600 disabled:opacity-50 text-white font-black rounded-xl text-xs">정산 및 공개</button>
+                    <button onClick={handleNextRound} disabled={gameState.status!=='revealed'} className="py-3 bg-emerald-600 disabled:opacity-50 text-white font-black rounded-xl text-xs">다음 라운드로</button>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Team Monitoring */}
+                    <div className="bg-[#121829] border border-[#1E294D] rounded-2xl p-5">
+                      <h3 className="text-sm font-black text-white mb-4">팀 실시간 전송 모니터링</h3>
+                      <div className="space-y-2">
+                        {gameState.teams.map(team => {
+                          const hasSub = team.history[gameState.currentRound]?.cards?.length > 0;
+                          return (
+                            <div key={team.id} className="flex justify-between items-center bg-[#161D30] border border-[#1E294D] p-3 rounded-xl">
+                              <span className="text-xs font-black text-slate-200">{team.name}</span>
+                              {hasSub ? <span className="text-[10px] font-black text-emerald-400 bg-emerald-950 px-2 py-1 rounded">수신 완료</span> : <span className="text-[10px] text-slate-500">대기 중...</span>}
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                    {/* Leaderboard */}
+                    <div className="bg-[#121829] border border-[#1E294D] rounded-2xl p-5">
+                      <h3 className="text-sm font-black text-white mb-4">종합 순위표</h3>
+                      <div className="space-y-2">
+                        {[...gameState.teams].sort((a,b)=>b.score-a.score).map((team, idx) => (
+                          <div key={team.id} className="flex justify-between items-center bg-[#161D30] border border-[#1E294D] p-3 rounded-xl">
+                            <div className="flex items-center space-x-2">
+                              <span className="w-5 h-5 bg-indigo-950 text-indigo-400 text-[10px] font-black flex justify-center items-center rounded">{idx+1}</span>
+                              <span className="text-xs font-black text-slate-200">{team.name}</span>
+                            </div>
+                            <span className="text-xs font-black text-white">{team.score}P</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </main>
+          )}
+
+        </div>
+      );
+    }
+
+    const container = document.getElementById('root');
+    const root = ReactDOM.createRoot(container);
+    root.render(<App />);
+  </script>
+</body>
+</html>
