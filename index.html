@@ -2,7 +2,10 @@
 <html lang="ko" class="dark">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- 모바일 뷰포트 고정, 스케일 방지, 박스 사이징 표준화 -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <!-- 모바일 브라우저(iOS Safari 등) 자동 전화번호 링킹 레이아웃 깨짐 방지 -->
+  <meta name="format-detection" content="telephone=no">
   <title>Market Simulation Game PRO V3</title>
   
   <!-- Google Fonts -->
@@ -10,7 +13,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800;900&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet">
   
-  <!-- Tailwind CSS -->
+  <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
@@ -24,65 +27,92 @@
     }
   </script>
 
-  <!-- React 18 & ReactDOM 18 -->
+  <!-- React 18 & ReactDOM 18 CDNs -->
   <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
   
   <!-- Babel Standalone -->
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
-  <!-- GunDB: 다중 분산 노드 접속 체계 (안정성 강화) -->
+  <!-- GunDB CDN: 다기기(PC-Mobile) 연동 초고속 노드 셋업 -->
   <script src="https://cdn.jsdelivr.net/npm/gun/gun.js"></script>
 
   <style>
+    /* 박스 사이징 전역 설정 및 폰트 셋업 */
+    *, *::before, *::after {
+      box-sizing: border-box;
+    }
+
     body {
       font-family: 'Nunito', 'Plus Jakarta Sans', -apple-system, sans-serif;
       font-weight: 800;
       background-color: #0A0E1A;
+      /* 모바일 브라우저 오버스크롤/바운스 방지 */
+      overscroll-behavior-y: none;
+      width: 100%;
+      margin: 0;
+      padding: 0;
     }
+
+    /* 모바일 터치 하이라이트 투명화 및 터치 반응 속도 최적화 */
+    button, input {
+      touch-action: manipulation;
+    }
+    * {
+      -webkit-tap-highlight-color: transparent;
+    }
+    
+    /* 모바일 노치(Notch) 및 하단 홈바 안전 영역 패딩 */
+    .pb-safe {
+      padding-bottom: env(safe-area-inset-bottom, 16px);
+    }
+    .pt-safe {
+      padding-top: env(safe-area-inset-top, 0px);
+    }
+
+    /* 실시간 네온 점멸 애니메이션 */
     @keyframes customBlink {
       0%, 100% { opacity: 1; transform: scale(1); filter: brightness(1.2); }
       50% { opacity: 0.3; transform: scale(0.97); filter: brightness(0.8); }
     }
     .animate-custom-blink { animation: customBlink 1.2s infinite ease-in-out; }
+    
     @keyframes neonPulse {
       0%, 100% { box-shadow: 0 0 8px rgba(99, 102, 241, 0.4); border-color: rgba(99, 102, 241, 0.6); }
       50% { box-shadow: 0 0 20px rgba(99, 102, 241, 0.8); border-color: rgba(99, 102, 241, 1); }
     }
     .pulse-indigo-glowing { animation: neonPulse 1.5s infinite ease-in-out; }
-    @keyframes cyanPulse {
-      0%, 100% { box-shadow: 0 0 8px rgba(6, 182, 212, 0.4); border-color: rgba(6, 182, 212, 0.6); }
-      50% { box-shadow: 0 0 20px rgba(6, 182, 212, 0.8); border-color: rgba(6, 182, 212, 1); }
-    }
-    .pulse-cyan-glowing { animation: cyanPulse 1.5s infinite ease-in-out; }
+
     @keyframes emeraldPulse {
       0%, 100% { box-shadow: 0 0 8px rgba(16, 185, 129, 0.4); border-color: rgba(16, 185, 129, 0.6); }
       50% { box-shadow: 0 0 20px rgba(16, 185, 129, 0.8); border-color: rgba(16, 185, 129, 1); }
     }
     .pulse-emerald-glowing { animation: emeraldPulse 1.5s infinite ease-in-out; }
-    * { -webkit-tap-highlight-color: transparent; }
-    .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
-    
-    /* 스크롤바 숨김 */
-    .no-scrollbar::-webkit-scrollbar { display: none; }
-    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+    /* 모바일/PC 반응형 미디어 쿼리 조정 */
+    @media screen and (max-width: 768px) {
+      body {
+        font-size: 14px;
+      }
+    }
   </style>
 </head>
-<body class="min-h-screen text-[#E2E8F0] select-none pb-safe">
-  <div id="root"></div>
+<body class="min-h-screen text-[#E2E8F0] select-none pt-safe pb-safe">
+  
+  <!-- React Mount Point -->
+  <div id="root" class="w-full flex flex-col min-h-screen"></div>
 
   <script type="text/babel">
     const { useState, useEffect, useRef } = React;
 
-    // --- STREAMING_CHUNK: Initializing Database Connections ---
     const gun = Gun([
       'https://gun-rs.iris.to/gun',
       'https://relay.peer.ooo/gun',
       'https://peer.wall.org/gun'
     ]);
-    const MASTER_LIST_KEY = 'market_sim_pro_v3_master_sessions';
+    const MASTER_LIST_KEY = 'market_sim_pro_v3_master_sessions_live';
 
-    // --- STREAMING_CHUNK: Defining Icons ---
+    // --- SVG Icons Pack ---
     const ShieldIcon = () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>;
     const UsersIcon = () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>;
     const LockIcon = () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>;
@@ -95,10 +125,9 @@
     const ChevronRightIcon = () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" /></svg>;
     const DownloadIcon = () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>;
     const EditIcon = () => <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>;
-    const AlertIcon = () => <svg className="w-5 h-5 text-amber-400 mr-2 animate-bounce" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>;
     const TrashIcon = () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>;
+    const AlertIcon = () => <svg className="w-5 h-5 text-amber-400 mr-2 animate-bounce" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>;
 
-    // --- STREAMING_CHUNK: Configurations & Algorithms ---
     const MARKET_STAGES = {
       1: { name: "초기 시장 (R1~3)", color: "border-cyan-500/80 text-cyan-400 bg-cyan-950/40", hex: "#06B6D4" },
       2: { name: "초기 시장 (R1~3)", color: "border-cyan-500/80 text-cyan-400 bg-cyan-950/40", hex: "#06B6D4" },
@@ -113,9 +142,10 @@
 
     const createInitialDeck = () => {
       const deck = [];
+      const timestamp = Date.now();
       for (let val = 1; val <= 9; val++) {
-        deck.push({ id: `red-${val}-${Date.now()}-1`, value: val, color: 'red' });
-        deck.push({ id: `black-${val}-${Date.now()}-2`, value: val, color: 'black' });
+        deck.push({ id: `red-${val}-${timestamp}-1`, value: val, color: 'red' });
+        deck.push({ id: `black-${val}-${timestamp}-2`, value: val, color: 'black' });
       }
       return deck;
     };
@@ -180,8 +210,8 @@
       return scores;
     };
 
-    // --- STREAMING_CHUNK: Main Application Component ---
     function App() {
+      // 핵심 세션 글로벌 상태
       const [gameState, setGameState] = useState({
         gameCode: '',
         isStarted: false,
@@ -200,34 +230,35 @@
       
       const [joinGameCode, setJoinGameCode] = useState('');
       const [isJoining, setIsJoining] = useState(false);
+      const [joinError, setJoinError] = useState(null);
       const [setupTeamCount, setSetupTeamCount] = useState(4);
       
-      const [adminSessions, setAdminSessions] = useState([]); // Admin Dashboard state
+      const [adminSessions, setAdminSessions] = useState([]);
       const [toast, setToast] = useState(null);
       const [selectedCards, setSelectedCards] = useState([]);
       const [editingScoreTeamId, setEditingScoreTeamId] = useState(null);
       const [editScoreValue, setEditScoreValue] = useState('');
       const [showRoundResultPopup, setShowRoundResultPopup] = useState(false);
-
       const [confirmModal, setConfirmModal] = useState({ isOpen: false, title: '', message: '', onConfirm: null });
 
-      // --- STREAMING_CHUNK: Local Storage Recovery ---
       useEffect(() => {
-        // Load Admin Sessions
+        // 관리자용 세션 로드
         const savedSessions = localStorage.getItem('market_sim_admin_sessions');
         if (savedSessions) {
           try { setAdminSessions(JSON.parse(savedSessions)); } catch(e) {}
         }
         
-        // Auto-recover active participant session if exists
+        // 참가자용 세션 자동 복원 (새로고침, 튕김 방지)
         const lastRole = localStorage.getItem('market_sim_last_role');
         const lastSessionCode = localStorage.getItem('market_sim_last_session_code');
+        
         if (lastRole === 'participant' && lastSessionCode) {
            const savedData = localStorage.getItem('market_sim_pro_v3_participant_session_' + lastSessionCode);
            if (savedData) {
              try {
                const parsed = JSON.parse(savedData);
                setGameState(parsed);
+               setJoinGameCode(lastSessionCode);
                if(parsed.selectedTeamId) {
                  setSelectedTeamId(parsed.selectedTeamId);
                  setUserRole('gameplay');
@@ -236,27 +267,39 @@
                }
              } catch(e){}
            }
+        } else if (lastRole === 'admin') {
+           setUserRole('admin_dashboard');
         }
       }, []);
 
-      // --- STREAMING_CHUNK: Realtime Database Syncing ---
       useEffect(() => {
         if (!gameState.gameCode) return;
 
-        const globalStateRef = gun.get('market_sim_pro_v3_session_' + gameState.gameCode).get('global_state');
+        const sessionKey = 'market_sim_pro_v3_session_' + gameState.gameCode;
+        const globalStateRef = gun.get(sessionKey).get('global_state');
+        
         globalStateRef.on((data) => {
           if (data) {
             try {
               const parsed = JSON.parse(data);
               setGameState(prev => {
-                if (prev.isSetupFormVisible && !parsed.isStarted) return prev;
-                return { ...prev, ...parsed };
+                if (prev.isSetupFormVisible && !parsed.isStarted) return prev; // 개설 중 덮어쓰기 방지
+                
+                // 참가자 입장 시, 팀 선택 상태와 세션 상태 병합 유지
+                const mergedState = { ...prev, ...parsed };
+                
+                if (userRole === 'participant_select_team' || userRole === 'gameplay') {
+                   localStorage.setItem('market_sim_pro_v3_participant_session_' + mergedState.gameCode, JSON.stringify({
+                     ...mergedState, selectedTeamId: selectedTeamId || prev.selectedTeamId
+                   }));
+                }
+                return mergedState;
               });
             } catch (err) {}
           }
         });
 
-        const timerRef = gun.get('market_sim_pro_v3_session_' + gameState.gameCode).get('timer_sync');
+        const timerRef = gun.get(sessionKey).get('timer_sync');
         timerRef.on((data) => {
           if (data) {
             try {
@@ -266,10 +309,9 @@
           }
         });
 
-        // Admin listens to team submissions
         if (userRole === 'admin') {
           gameState.teams.forEach(team => {
-            gun.get('market_sim_pro_v3_session_' + gameState.gameCode).get(`team_sub_${team.id}`).on((data) => {
+            gun.get(sessionKey).get(`team_sub_${team.id}`).on((data) => {
               if (data) {
                 try {
                   const subData = JSON.parse(data);
@@ -312,9 +354,8 @@
           globalStateRef.off();
           timerRef.off();
         };
-      }, [gameState.gameCode, userRole, gameState.currentRound]);
+      }, [gameState.gameCode, userRole, gameState.currentRound, selectedTeamId]);
 
-      // --- STREAMING_CHUNK: Timer & Automations ---
       useEffect(() => {
         let interval = null;
         if (userRole === 'admin' && gameState.timerActive && gameState.timer > 0 && gameState.status === 'submitting') {
@@ -349,7 +390,6 @@
         else setShowRoundResultPopup(false);
       }, [gameState.status, gameState.currentRound, userRole, selectedTeamId]);
 
-      // --- STREAMING_CHUNK: Helpers ---
       const triggerConfirm = (title, message, onConfirmAction) => {
         setConfirmModal({
           isOpen: true, title, message,
@@ -359,7 +399,7 @@
 
       const showToast = (message, type = 'info') => {
         setToast({ message, type });
-        setTimeout(() => setToast(null), 4000);
+        setTimeout(() => setToast(null), 3500);
       };
 
       const autoSubmitUnsubmittedTeams = (currentState) => {
@@ -388,14 +428,15 @@
         return { ...currentState, teams: updatedTeams, status: 'closed', timerActive: false };
       };
 
-      // --- STREAMING_CHUNK: Admin Handlers ---
+      // --- Admin Handlers ---
       const handleAdminAuthSubmit = (e) => {
         e.preventDefault();
         if (adminPassword === '0321') {
           setUserRole('admin_dashboard');
+          localStorage.setItem('market_sim_last_role', 'admin');
           setIsPasswordModalOpen(false);
           setAdminPassword('');
-          showToast("관리자 인증 완료. 강사 대시보드로 이동합니다.");
+          showToast("관리자 대시보드에 접근했습니다.");
         } else {
           showToast("비밀번호가 올바르지 않습니다.", "error");
         }
@@ -405,19 +446,18 @@
         const code = generateGameCode();
         const newSession = { code, courseName: `비즈니스 시뮬레이션 (${code})`, createdAt: Date.now() };
         
-        // Save to Admin Local Storage
         const nextSessions = [...adminSessions, newSession];
         setAdminSessions(nextSessions);
         localStorage.setItem('market_sim_admin_sessions', JSON.stringify(nextSessions));
 
-        // Publish to Global Master List
-        gun.get(MASTER_LIST_KEY).get(code).put(newSession);
+        // Master 카탈로그에 등록 (참가자 모바일 접속 시 빠른 1차 판독용)
+        gun.get(MASTER_LIST_KEY).get(code).put(JSON.stringify(newSession));
 
         setGameState({
           gameCode: code, isStarted: false, isSetupFormVisible: true, currentRound: 1, teams: [], status: 'idle', timer: 180, timerActive: false,
         });
         setUserRole('admin');
-        showToast(`세션 코드 ${code}가 정상 예약되었습니다.`);
+        showToast(`세션 코드 ${code}가 개설되었습니다.`);
       };
 
       const handleEnterAdminSession = (code) => {
@@ -431,7 +471,10 @@
           const nextSessions = adminSessions.filter(s => s.code !== code);
           setAdminSessions(nextSessions);
           localStorage.setItem('market_sim_admin_sessions', JSON.stringify(nextSessions));
-          gun.get(MASTER_LIST_KEY).get(code).put(null); // Remove from public directory
+          
+          gun.get(MASTER_LIST_KEY).get(code).put(null); // 카탈로그에서 제거
+          gun.get('market_sim_pro_v3_session_' + code).get('global_state').put(null); // 방폭파
+          
           showToast(`${code} 세션이 삭제되었습니다.`);
         });
       };
@@ -541,40 +584,50 @@
         setEditingScoreTeamId(null);
       };
 
-      // --- STREAMING_CHUNK: Participant Handlers ---
       const handleParticipantJoin = (e) => {
         e.preventDefault();
         const trimmedCode = joinGameCode.trim().toUpperCase();
-        if (!trimmedCode || trimmedCode.length !== 6) return showToast('6자리 코드를 정확히 입력하세요.', 'error');
+        if (!trimmedCode || trimmedCode.length !== 6) {
+          setJoinError('6자리 코드를 정확히 입력하세요.');
+          return;
+        }
 
         setIsJoining(true);
+        setJoinError(null);
 
-        // 1. 방 존재여부 1차 즉각 확인
-        gun.get(MASTER_LIST_KEY).get(trimmedCode).once((data) => {
-          if (!data || data === 'null') {
+        // 모바일 네트워크 폴링: 카탈로그(Master Key) 먼저 검사 후 진입 허용
+        let isFound = false;
+        let checkTimeout = setTimeout(() => {
+          if (!isFound) {
             setIsJoining(false);
-            showToast('존재하지 않는 코드입니다.', 'error');
-            return;
+            setJoinError('해당 코드로 개설된 세션을 찾을 수 없거나 네트워크가 지연 중입니다. 다시 확인해주세요.');
           }
+        }, 4500); // 모바일 지연 대비 최대 4.5초 대기
 
-          let sessionMeta = typeof data === 'string' ? JSON.parse(data) : data;
-          
-          const nextGameState = {
-            ...gameState,
-            gameCode: sessionMeta.code || trimmedCode,
-            role: 'participant'
-          };
+        gun.get(MASTER_LIST_KEY).get(trimmedCode).on((data, key, msg, ev) => {
+          if (data && data !== 'null' && !isFound) {
+            isFound = true;
+            clearTimeout(checkTimeout);
+            ev.off(); // 반복 수신 중지
 
-          // 2. 로컬에 접속 상태 캐싱 (새로고침 대응)
-          localStorage.setItem('market_sim_last_role', 'participant');
-          localStorage.setItem('market_sim_last_session_code', nextGameState.gameCode);
-          localStorage.setItem('market_sim_pro_v3_participant_session_' + nextGameState.gameCode, JSON.stringify(nextGameState));
+            let sessionMeta = typeof data === 'string' ? JSON.parse(data) : data;
+            
+            const nextGameState = {
+              ...gameState,
+              gameCode: sessionMeta.code || trimmedCode,
+              role: 'participant'
+            };
 
-          // 3. 글로벌 상태 반영 후 대기실(팀 선택창) 이동
-          setGameState(nextGameState);
-          setUserRole('participant_select_team');
-          setIsJoining(false);
-          showToast(`과정 연결 성공! 세부 데이터를 수신합니다.`);
+            // 브라우저 리프레시 대응 로컬 캐싱
+            localStorage.setItem('market_sim_last_role', 'participant');
+            localStorage.setItem('market_sim_last_session_code', nextGameState.gameCode);
+            try { localStorage.setItem('market_sim_pro_v3_participant_session_' + nextGameState.gameCode, JSON.stringify(nextGameState)); } catch (err) {}
+
+            setGameState(nextGameState);
+            setUserRole('participant_select_team'); // 통과시켜 대기실 UI 렌더링
+            setIsJoining(false);
+            showToast(`연결 성공! 세부 데이터를 수신 중입니다.`);
+          }
         });
       };
 
@@ -612,60 +665,66 @@
 
       const currentStageInfo = MARKET_STAGES[gameState.currentRound] || { name: "종료", color: "" };
 
-      // --- STREAMING_CHUNK: Render Function ---
       return (
-        <div className="min-h-screen bg-[#0A0E1A] text-[#E2E8F0] flex flex-col selection:bg-[#1E294B] selection:text-white pb-safe">
+        <div className="w-full flex-grow flex flex-col items-center bg-[#0A0E1A] text-[#E2E8F0] selection:bg-[#1E294B] selection:text-white pb-safe">
           
-          <header className="sticky top-0 z-40 bg-[#0A0E1A]/95 border-b border-[#1E294B]/80 backdrop-blur-md px-4 py-3 flex items-center justify-between shadow-lg">
+          <header className="w-full sticky top-0 z-40 bg-[#0A0E1A]/95 border-b border-[#1E294B]/80 backdrop-blur-md px-4 py-3 flex items-center justify-between shadow-lg box-border">
             <div className="flex items-center space-x-2.5">
               <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-indigo-600 to-cyan-500 flex items-center justify-center text-white font-black text-sm tracking-tighter shadow-md">M</div>
-              <h1 className="text-xs font-black text-white tracking-tight uppercase flex items-center">
+              <h1 className="text-xs sm:text-sm font-black text-white tracking-tight uppercase flex items-center">
                 <span>Market Simulation</span>
-                <span className="ml-1.5 text-[8px] bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 px-1 py-0.5 rounded-full font-bold">PRO V3</span>
+                <span className="hidden sm:inline-block ml-1.5 text-[8px] sm:text-[10px] bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 px-1 py-0.5 rounded-full font-bold">PRO V3</span>
               </h1>
             </div>
+            
             {userRole === 'admin' && (
               <button
-                onClick={() => setUserRole('admin_dashboard')}
-                className="px-2.5 py-1.5 bg-[#161D30] hover:bg-indigo-950 text-slate-300 hover:text-indigo-300 border border-[#1E294D] rounded-xl text-[10px] font-black transition-colors"
+                onClick={() => {
+                  triggerConfirm("대시보드 이동", "강사 대시보드로 이동하시겠습니까? (현재 개설된 세션은 백그라운드에 유지됩니다.)", () => {
+                    setUserRole('admin_dashboard');
+                  });
+                }}
+                className="px-3 py-2 sm:px-4 sm:py-2 bg-[#161D30] hover:bg-indigo-950 text-slate-300 hover:text-indigo-300 border border-[#1E294D] rounded-xl text-[10px] sm:text-xs font-black transition-colors w-auto"
               >
-                목록으로
+                대시보드 이동
               </button>
             )}
-            {(userRole === 'participant_select_team' || userRole === 'gameplay') && (
+            {(userRole === 'participant_select_team' || userRole === 'gameplay' || userRole === 'participant_join_flow') && (
               <button
                 onClick={() => {
-                  triggerConfirm("나가기", "연결을 끊고 메인 화면으로 이동하시겠습니까?", () => {
+                  triggerConfirm("대기실 이동", "현재 대시보드를 이탈하고 처음 로비 화면으로 이동하시겠습니까?", () => {
                     setUserRole('landing'); setSelectedTeamId(''); localStorage.removeItem('market_sim_last_role');
                   });
                 }}
-                className="px-2.5 py-1.5 bg-[#161D30] hover:bg-red-950/40 text-slate-300 hover:text-red-400 border border-[#1E294D] rounded-xl text-[10px] font-black transition-colors"
+                className="px-3 py-2 sm:px-4 sm:py-2 bg-[#161D30] hover:bg-red-950/40 text-slate-300 hover:text-red-400 border border-[#1E294D] rounded-xl text-[10px] sm:text-xs font-black transition-colors w-auto"
               >
                 접속 종료
               </button>
             )}
             {userRole === 'admin_dashboard' && (
-              <button onClick={() => setUserRole('landing')} className="px-2.5 py-1.5 bg-[#161D30] text-slate-400 border border-[#1E294D] rounded-xl text-[10px] font-black">로그아웃</button>
+              <button onClick={() => { setUserRole('landing'); localStorage.removeItem('market_sim_last_role'); }} className="px-3 py-2 sm:px-4 sm:py-2 bg-[#161D30] text-slate-400 border border-[#1E294D] rounded-xl text-[10px] sm:text-xs font-black w-auto">로그아웃</button>
             )}
           </header>
 
+          {/* Toast Notification */}
           {toast && (
-            <div className="fixed top-16 right-4 left-4 sm:left-auto sm:w-80 z-50">
-              <div className={`flex items-center space-x-2.5 px-4 py-3 rounded-xl border shadow-2xl text-[11px] font-black tracking-wide ${toast.type === 'error' ? 'bg-red-950/90 border-red-500/50 text-red-200' : 'bg-[#131B31]/95 border-indigo-500/50 text-indigo-100'}`}>
+            <div className="fixed top-16 right-4 left-4 sm:left-auto sm:right-6 sm:w-80 z-50 pointer-events-none">
+              <div className={`flex items-center space-x-2.5 px-4 py-3.5 rounded-xl border shadow-2xl text-[11px] sm:text-xs font-black tracking-wide ${toast.type === 'error' ? 'bg-red-950/95 border-red-500/50 text-red-200' : 'bg-[#131B31]/95 border-indigo-500/50 text-indigo-100'}`}>
                 <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-ping shrink-0"></span>
                 <span>{toast.message}</span>
               </div>
             </div>
           )}
 
+          {/* Modal Overlay (Touch optimized sizing) */}
           {confirmModal.isOpen && (
-            <div className="fixed inset-0 bg-[#060810]/85 backdrop-blur-xs flex items-center justify-center z-50 p-4">
-              <div className="bg-[#121829] border border-[#1E294D] rounded-2xl p-5 max-w-sm w-full shadow-2xl">
-                <h4 className="text-xs font-black text-white text-center mb-1">{confirmModal.title}</h4>
-                <p className="text-[10px] text-slate-400 text-center mb-5">{confirmModal.message}</p>
-                <div className="flex space-x-2">
-                  <button onClick={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))} className="flex-1 py-2 bg-[#161D30] text-slate-400 rounded-xl text-[10px] font-black">취소</button>
-                  <button onClick={confirmModal.onConfirm} className="flex-1 py-2 bg-indigo-600 text-white rounded-xl text-[10px] font-black">확인</button>
+            <div className="fixed inset-0 bg-[#060810]/85 backdrop-blur-xs flex items-center justify-center z-50 p-4 box-border">
+              <div className="bg-[#121829] border border-[#1E294D] rounded-2xl p-5 sm:p-6 max-w-sm w-full shadow-2xl">
+                <h4 className="text-sm font-black text-white text-center mb-2">{confirmModal.title}</h4>
+                <p className="text-xs text-slate-400 text-center mb-6 leading-relaxed">{confirmModal.message}</p>
+                <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2 w-full">
+                  <button onClick={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))} className="w-full py-3 sm:py-2.5 bg-[#161D30] text-slate-400 rounded-xl text-xs font-black">취소</button>
+                  <button onClick={confirmModal.onConfirm} className="w-full py-3 sm:py-2.5 bg-indigo-600 text-white rounded-xl text-xs font-black">확인</button>
                 </div>
               </div>
             </div>
@@ -673,35 +732,41 @@
 
           {/* LANDING PAGE */}
           {userRole === 'landing' && (
-            <div className="flex-grow flex items-center justify-center px-4 py-12">
-              <div className="max-w-md w-full bg-[#121829] rounded-3xl border border-[#1E294D] p-6 shadow-2xl text-center">
-                <div className="mb-8">
-                  <div className="w-12 h-12 bg-indigo-950/50 border border-indigo-500/20 text-indigo-400 rounded-2xl flex items-center justify-center mx-auto mb-3"><UsersIcon /></div>
-                  <h2 className="text-lg font-black text-white uppercase">Market Simulation</h2>
-                  <p className="text-[10px] text-slate-400 mt-1 font-bold">임직원 핵심 경영 의사결정 비즈니스 플랫폼</p>
+            <div className="w-full max-w-md mx-auto flex-grow flex items-center justify-center px-4 py-12 box-border">
+              <div className="w-full bg-[#121829] rounded-3xl border border-[#1E294D] p-6 sm:p-8 shadow-2xl text-center relative overflow-hidden">
+                <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-indigo-500 via-cyan-500 to-violet-500"></div>
+                <div className="mb-8 mt-2">
+                  <div className="w-14 h-14 bg-indigo-950/50 border border-indigo-500/20 text-indigo-400 rounded-2xl flex items-center justify-center mx-auto mb-4"><UsersIcon /></div>
+                  <h2 className="text-xl sm:text-2xl font-black text-white uppercase tracking-tight">Market Simulation</h2>
+                  <p className="text-xs text-slate-400 mt-2 font-bold">임직원 핵심 경영 의사결정 비즈니스 플랫폼</p>
                 </div>
-                <div className="space-y-4 flex flex-col items-center">
-                  <button onClick={() => setUserRole('participant_join_flow')} className="w-full max-w-sm h-24 bg-gradient-to-br from-indigo-600 via-indigo-700 to-cyan-600 hover:from-indigo-500 text-white rounded-2xl shadow-lg transition-all flex flex-col items-center justify-center transform active:scale-95">
-                    <span className="text-lg font-extrabold">👥 참가자(팀) 접속하기</span>
-                    <span className="text-[10px] text-indigo-200">6자리 세션 코드로 입장</span>
+                <div className="space-y-4 flex flex-col items-center w-full">
+                  <button onClick={() => setUserRole('participant_join_flow')} className="w-full h-24 sm:h-28 bg-gradient-to-br from-indigo-600 via-indigo-700 to-cyan-600 hover:from-indigo-500 text-white rounded-2xl shadow-lg transition-all flex flex-col items-center justify-center transform active:scale-[0.98]">
+                    <span className="text-lg sm:text-xl font-extrabold">👥 참가자(팀) 접속하기</span>
+                    <span className="text-[10px] sm:text-xs text-indigo-200 mt-1">부여받은 6자리 세션 코드로 입장</span>
                   </button>
-                  <button onClick={() => setIsPasswordModalOpen(true)} className="w-full max-w-sm h-10 bg-[#161D30] hover:bg-[#1F294D] text-slate-400 border border-[#1E294D] rounded-xl text-xs font-bold transition-all flex items-center justify-center mt-4">
-                    <ShieldIcon /><span className="ml-1.5 font-black text-[11px]">Admin 접속</span>
+                  <div className="w-full flex py-2 items-center justify-center">
+                    <span className="text-[10px] font-black text-slate-600 uppercase tracking-widest">or</span>
+                  </div>
+                  <button onClick={() => setIsPasswordModalOpen(true)} className="w-full h-12 bg-[#161D30] hover:bg-[#1F294D] text-slate-400 border border-[#1E294D] rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center justify-center transform active:scale-[0.98]">
+                    <ShieldIcon /><span className="ml-2 font-black">Admin 접속</span>
                   </button>
                 </div>
               </div>
             </div>
           )}
 
+          {/* ADMIN PASSWORD GATE */}
           {isPasswordModalOpen && (
-            <div className="fixed inset-0 bg-[#060810]/85 flex items-center justify-center z-50 p-4">
-              <div className="bg-[#121829] border border-[#1E294D] rounded-2xl p-6 max-w-sm w-full">
-                <h3 className="text-xs font-black text-white mb-4">관리자 비밀번호</h3>
-                <form onSubmit={handleAdminAuthSubmit} className="space-y-4">
-                  <input type="password" required value={adminPassword} onChange={(e) => setAdminPassword(e.target.value)} className="w-full px-3 py-2 border border-[#1E294D] bg-[#0B0F19] text-white rounded-xl text-center outline-none focus:border-indigo-500" />
-                  <div className="flex space-x-2">
-                    <button type="button" onClick={() => setIsPasswordModalOpen(false)} className="flex-1 py-2.5 bg-[#161D30] text-slate-400 rounded-xl text-xs font-black">취소</button>
-                    <button type="submit" className="flex-1 py-2.5 bg-indigo-600 text-white rounded-xl text-xs font-black">인증</button>
+            <div className="fixed inset-0 bg-[#060810]/85 flex items-center justify-center z-50 p-4 box-border">
+              <div className="bg-[#121829] border border-[#1E294D] rounded-2xl p-6 sm:p-8 max-w-sm w-full relative shadow-2xl">
+                <h3 className="text-sm font-black text-white mb-2 flex items-center"><span className="w-2 h-2 rounded-full bg-indigo-500 mr-2 animate-pulse"></span> 관리자 인증</h3>
+                <p className="text-[11px] text-slate-400 mb-5 leading-relaxed">인가된 전용 비밀번호를 입력해 주십시오.</p>
+                <form onSubmit={handleAdminAuthSubmit} className="space-y-4 w-full">
+                  <input type="password" required value={adminPassword} onChange={(e) => setAdminPassword(e.target.value)} className="w-full px-4 py-3 border border-[#1E294D] bg-[#0B0F19] text-white rounded-xl text-center font-mono outline-none focus:border-indigo-500" placeholder="비밀번호" />
+                  <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2 w-full">
+                    <button type="button" onClick={() => setIsPasswordModalOpen(false)} className="w-full py-3 bg-[#161D30] text-slate-400 rounded-xl text-xs font-black">취소</button>
+                    <button type="submit" className="w-full py-3 bg-indigo-600 text-white rounded-xl text-xs font-black">인증</button>
                   </div>
                 </form>
               </div>
@@ -710,28 +775,28 @@
 
           {/* ADMIN DASHBOARD */}
           {userRole === 'admin_dashboard' && (
-            <div className="flex-grow max-w-4xl w-full mx-auto p-4 py-8">
-              <div className="flex justify-between items-center mb-6">
+            <div className="w-full max-w-4xl mx-auto flex-grow p-4 sm:p-6 lg:py-8 box-border">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 space-y-4 sm:space-y-0">
                 <div>
-                  <h2 className="text-lg font-black text-white">강사 대시보드</h2>
-                  <p className="text-[10px] text-slate-400">개설된 시뮬레이션 과정을 관리합니다.</p>
+                  <h2 className="text-xl font-black text-white">강사 대시보드</h2>
+                  <p className="text-xs text-slate-400 mt-1">개설된 시뮬레이션 과정을 관리합니다.</p>
                 </div>
-                <button onClick={handlePreCreateSession} className="px-4 py-2 bg-indigo-600 text-white text-xs font-black rounded-xl shadow-lg">+ 새 과정 개설</button>
+                <button onClick={handlePreCreateSession} className="w-full sm:w-auto px-6 py-3 bg-indigo-600 text-white text-xs font-black rounded-xl shadow-lg">+ 새 과정 개설</button>
               </div>
               
-              <div className="grid gap-4">
+              <div className="grid gap-4 w-full">
                 {adminSessions.length === 0 ? (
-                  <div className="bg-[#121829] border border-[#1E294D] rounded-2xl p-8 text-center text-slate-500 text-xs font-bold">개설된 과정이 없습니다. 새 과정을 개설해주세요.</div>
+                  <div className="bg-[#121829] border border-[#1E294D] rounded-2xl p-10 text-center text-slate-500 text-sm font-bold shadow-md">개설된 과정이 없습니다. 우측 상단의 버튼을 눌러 개설해주세요.</div>
                 ) : (
                   adminSessions.map(session => (
-                    <div key={session.code} className="bg-[#121829] border border-[#1E294D] rounded-2xl p-4 flex items-center justify-between">
+                    <div key={session.code} className="bg-[#121829] border border-[#1E294D] rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between shadow-md space-y-4 sm:space-y-0">
                       <div>
                         <h3 className="text-sm font-black text-indigo-400">[{session.code}] {session.courseName}</h3>
-                        <span className="text-[10px] text-slate-500 block mt-1">생성일: {new Date(session.createdAt).toLocaleDateString()}</span>
+                        <span className="text-[10px] text-slate-500 block mt-1.5 font-semibold">생성일: {new Date(session.createdAt).toLocaleDateString()}</span>
                       </div>
-                      <div className="flex space-x-2">
-                        <button onClick={() => handleDeleteAdminSession(session.code)} className="p-2 bg-red-950/30 text-red-400 rounded-lg hover:bg-red-900 transition-colors"><TrashIcon /></button>
-                        <button onClick={() => handleEnterAdminSession(session.code)} className="px-4 py-2 bg-indigo-950/50 text-indigo-300 border border-indigo-500/30 rounded-lg text-xs font-black hover:bg-indigo-600 hover:text-white transition-colors">접속하기</button>
+                      <div className="flex space-x-2 w-full sm:w-auto">
+                        <button onClick={() => handleDeleteAdminSession(session.code)} className="flex-1 sm:flex-none p-3 bg-red-950/30 text-red-400 rounded-xl hover:bg-red-900 transition-colors border border-red-900/50 flex justify-center"><TrashIcon /></button>
+                        <button onClick={() => handleEnterAdminSession(session.code)} className="flex-4 sm:flex-none px-6 py-3 bg-indigo-950/50 text-indigo-300 border border-indigo-500/30 rounded-xl text-xs font-black hover:bg-indigo-600 hover:text-white transition-colors">관리실 접속</button>
                       </div>
                     </div>
                   ))
@@ -742,21 +807,23 @@
 
           {/* PARTICIPANT JOIN FLOW */}
           {userRole === 'participant_join_flow' && (
-            <div className="flex-grow flex items-center justify-center px-4 py-12">
-              <div className="max-w-md w-full bg-[#121829] rounded-3xl border border-[#1E294D] p-6 text-center">
-                <h3 className="text-sm font-black text-white mb-2">과정 참가</h3>
-                <p className="text-[11px] text-slate-400 mb-6">강사가 안내한 6자리 코드를 입력하세요.</p>
-                <form onSubmit={handleParticipantJoin} className="space-y-4">
-                  <input type="text" required maxLength={6} value={joinGameCode} onChange={(e) => setJoinGameCode(e.target.value)} placeholder="MK0000" className="w-full px-4 py-3 border border-[#1E294D] bg-[#0B0F19] text-white rounded-xl text-center font-mono font-bold outline-none focus:border-indigo-500 uppercase tracking-widest" />
+            <div className="w-full max-w-md mx-auto flex-grow flex items-center justify-center px-4 py-12 box-border">
+              <div className="w-full bg-[#121829] rounded-3xl border border-[#1E294D] p-6 sm:p-8 text-center shadow-2xl relative">
+                <h3 className="text-base sm:text-lg font-black text-white mb-2">과정 참가</h3>
+                <p className="text-xs text-slate-400 mb-6 font-semibold">강사가 안내한 6자리 코드를 입력하세요.</p>
+                <form onSubmit={handleParticipantJoin} className="space-y-5 w-full">
+                  <input type="text" required maxLength={6} value={joinGameCode} onChange={(e) => setJoinGameCode(e.target.value)} placeholder="MK0000" className="w-full px-4 py-4 border border-[#1E294D] bg-[#0B0F19] text-white rounded-2xl text-center font-mono font-bold text-lg outline-none focus:border-indigo-500 uppercase tracking-widest shadow-inner" />
+                  {joinError && <p className="text-[10px] sm:text-xs font-bold text-red-400 bg-red-950/40 border border-red-900/50 p-3 rounded-xl">{joinError}</p>}
+                  
                   {isJoining ? (
-                    <div className="bg-[#161D30] rounded-xl p-3 flex flex-col items-center">
-                      <div className="w-5 h-5 border-2 border-indigo-500/30 border-t-indigo-500 rounded-full animate-spin mb-2"></div>
-                      <span className="text-[10px] text-indigo-400 font-bold">코드 검증 중...</span>
+                    <div className="bg-[#161D30] rounded-2xl p-4 flex flex-col items-center border border-[#1E294D]">
+                      <div className="w-6 h-6 border-2 border-indigo-500/30 border-t-indigo-500 rounded-full animate-spin mb-3"></div>
+                      <span className="text-xs text-indigo-400 font-bold">네트워크 연결 중...</span>
                     </div>
                   ) : (
-                    <div className="flex space-x-2">
-                      <button type="button" onClick={() => setUserRole('landing')} className="flex-1 py-3 bg-[#161D30] text-slate-400 rounded-xl text-xs font-black">취소</button>
-                      <button type="submit" className="flex-1 py-3 bg-indigo-600 text-white rounded-xl text-xs font-black">접속</button>
+                    <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2 w-full">
+                      <button type="button" onClick={() => setUserRole('landing')} className="w-full py-4 sm:py-3 bg-[#161D30] text-slate-400 rounded-2xl text-xs sm:text-sm font-black border border-[#1E294D]">취소</button>
+                      <button type="submit" className="w-full py-4 sm:py-3 bg-gradient-to-r from-indigo-600 to-cyan-600 text-white rounded-2xl text-xs sm:text-sm font-black shadow-lg">접속</button>
                     </div>
                   )}
                 </form>
@@ -764,21 +831,22 @@
             </div>
           )}
 
-          {/* PARTICIPANT TEAM SELECT (WITH FALLBACK SPINNER) */}
+          {/* PARTICIPANT TEAM SELECT */}
           {userRole === 'participant_select_team' && (
-            <div className="flex-grow flex items-center justify-center px-4 py-12">
-              <div className="max-w-md w-full bg-[#121829] rounded-3xl border border-[#1E294D] p-6 text-center">
-                <h3 className="text-sm font-black text-white mb-1">참가팀(Group) 지정</h3>
-                <p className="text-[10px] text-slate-400 mb-6 font-semibold">소속된 팀을 눌러 입장하세요. (1인 1팀 잠금 적용)</p>
+            <div className="w-full max-w-md mx-auto flex-grow flex items-center justify-center px-4 py-12 box-border">
+              <div className="w-full bg-[#121829] rounded-3xl border border-[#1E294D] p-6 sm:p-8 text-center shadow-2xl relative">
+                <h3 className="text-base font-black text-white mb-2">참가팀(Group) 지정</h3>
+                <p className="text-xs text-slate-400 mb-6 font-semibold">소속된 팀을 눌러 입장하세요. (1팀당 1기기 접속 권장)</p>
                 
+                {/* Fallback Mobile Spinner */}
                 {!gameState.teams || gameState.teams.length === 0 ? (
-                  <div className="py-12 flex flex-col items-center border border-dashed border-[#1E294D] rounded-xl bg-[#0D1222] mb-6">
-                    <div className="w-8 h-8 border-4 border-indigo-500/30 border-t-indigo-500 rounded-full animate-spin mb-3"></div>
-                    <span className="text-[11px] font-black text-indigo-400">강사 기기에서 데이터를 수신 중입니다...</span>
-                    <span className="text-[9px] text-slate-500 mt-1">수신 완료 시 목록이 자동으로 나타납니다.</span>
+                  <div className="py-12 flex flex-col items-center border border-dashed border-[#1E294D] rounded-2xl bg-[#0D1222] mb-6 shadow-inner">
+                    <div className="w-8 h-8 border-4 border-indigo-500/30 border-t-indigo-500 rounded-full animate-spin mb-4"></div>
+                    <span className="text-xs font-black text-indigo-400">데이터를 조립 중입니다...</span>
+                    <span className="text-[10px] text-slate-500 mt-2 font-bold px-4 leading-relaxed">모바일 네트워크 상태에 따라 1~3초 소요될 수 있습니다. 창을 닫지 말고 대기해 주세요.</span>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-2 gap-2 max-h-[280px] overflow-y-auto mb-6 pr-1 no-scrollbar">
+                  <div className="grid grid-cols-2 gap-3 max-h-[350px] overflow-y-auto mb-6 pr-1 no-scrollbar w-full">
                     {gameState.teams.map(team => (
                       <button
                         key={team.id}
@@ -799,38 +867,38 @@
                           } catch (err) {}
                           showToast(`${team.name} 대시보드로 기동합니다.`);
                         }}
-                        className={`p-3.5 rounded-xl border text-xs font-black transition-all text-center flex flex-col items-center justify-center ${
+                        className={`p-4 rounded-2xl border text-sm sm:text-xs font-black transition-all text-center flex flex-col items-center justify-center min-h-[90px] shadow-sm ${
                           team.isOccupied 
-                            ? 'bg-[#0B0F19] border-[#1E294D]/50 text-slate-600 cursor-not-allowed opacity-50'
+                            ? 'bg-[#0B0F19] border-[#1E294D]/50 text-slate-600 cursor-not-allowed'
                             : 'border-[#1E294D] bg-[#161D30] hover:bg-[#1E294D] hover:border-indigo-400 text-slate-200 active:scale-95'
                         }`}
                       >
                         <span>{team.name}</span>
                         {team.isOccupied ? (
-                          <span className="text-[9px] text-red-400 mt-1">접속중 (잠금)</span>
+                          <span className="text-[10px] sm:text-[9px] text-red-400/80 mt-1.5 font-bold">접속 완료 (잠금)</span>
                         ) : (
-                          <span className="text-[9px] text-indigo-400 mt-1">입장 가능</span>
+                          <span className="text-[10px] sm:text-[9px] text-indigo-400 mt-1.5 font-bold">선택 가능</span>
                         )}
                       </button>
                     ))}
                   </div>
                 )}
-                <button onClick={() => setUserRole('participant_join_flow')} className="w-full py-2.5 bg-[#161D30] text-slate-400 rounded-xl text-xs font-black">뒤로 가기</button>
+                <button onClick={() => setUserRole('participant_join_flow')} className="w-full py-4 sm:py-3 bg-[#161D30] text-slate-400 rounded-2xl text-xs sm:text-sm font-black border border-[#1E294D]">뒤로 가기</button>
               </div>
             </div>
           )}
 
-          {/* GAMEPLAY AND ADMIN PANELS RETAINED FROM ORIGINAL LOGIC BUT SIMPLIFIED FOR SPACE */}
+          {/* GAMEPLAY (Mobile First Adjustments) */}
           {userRole === 'gameplay' && (
-            <main className="flex-grow max-w-4xl w-full mx-auto p-4 space-y-4">
-              <div className="bg-[#121829] border border-[#1E294D] rounded-2xl p-4 flex justify-between items-center shadow-lg">
+            <main className="w-full flex-grow max-w-4xl mx-auto p-4 sm:p-6 space-y-4 box-border">
+              <div className="bg-[#121829] border border-[#1E294D] rounded-2xl p-4 sm:p-5 flex justify-between items-center shadow-lg w-full">
                 <div>
-                  <span className="text-[8px] uppercase text-indigo-400 font-black">ROUND {gameState.currentRound}</span>
-                  <div className="text-xs font-black mt-0.5">{MARKET_STAGES[gameState.currentRound]?.name}</div>
+                  <span className="text-[9px] sm:text-[10px] uppercase text-indigo-400 font-black tracking-widest block mb-1">ROUND {gameState.currentRound} / 9</span>
+                  <div className="text-xs sm:text-sm font-black">{MARKET_STAGES[gameState.currentRound]?.name}</div>
                 </div>
-                <div className="flex items-center space-x-2 bg-[#161D30] px-3 py-1.5 rounded-xl border border-[#1E294D]">
-                  <ClockIcon className={gameState.timer <= 30 && gameState.timerActive ? 'text-red-500 animate-pulse' : 'text-indigo-400'} />
-                  <span className={`font-mono text-sm font-black ${gameState.timer <= 30 && gameState.timerActive ? 'text-red-500' : 'text-white'}`}>
+                <div className="flex items-center space-x-2.5 bg-[#161D30] px-4 py-2 sm:px-3 sm:py-1.5 rounded-xl border border-[#1E294D]">
+                  <ClockIcon className={gameState.timer <= 30 && gameState.timerActive ? 'text-red-500 animate-pulse w-5 h-5 sm:w-4 sm:h-4' : 'text-indigo-400 w-5 h-5 sm:w-4 sm:h-4'} />
+                  <span className={`font-mono text-base sm:text-sm font-black ${gameState.timer <= 30 && gameState.timerActive ? 'text-red-500' : 'text-white'}`}>
                     {Math.floor(gameState.timer / 60)}:{String(gameState.timer % 60).padStart(2, '0')}
                   </span>
                 </div>
@@ -842,38 +910,62 @@
                 const hasSubmitted = team.history[gameState.currentRound]?.cards?.length > 0;
 
                 return (
-                  <div className="bg-[#121829] border border-[#1E294D] rounded-2xl p-5 shadow-lg">
-                    <div className="flex justify-between items-center mb-6 pb-4 border-b border-[#1E294D]">
-                      <h3 className="text-sm font-black text-white">{team.name}</h3>
-                      <span className="text-xs font-black text-indigo-400">보유 자산: {team.score}P</span>
+                  <div className="bg-[#121829] border border-[#1E294D] rounded-3xl p-5 sm:p-6 shadow-xl w-full">
+                    <div className="flex justify-between items-center mb-6 pb-5 border-b border-[#1E294D]">
+                      <div>
+                        <span className="text-[9px] text-slate-500 uppercase tracking-widest font-black block mb-1">My Group</span>
+                        <h3 className="text-sm sm:text-base font-black text-white">{team.name}</h3>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-[9px] text-slate-500 uppercase tracking-widest font-black block mb-1">누적 점수</span>
+                        <span className="text-sm sm:text-base font-black text-indigo-400">{team.score}P</span>
+                      </div>
                     </div>
 
                     {hasSubmitted ? (
-                      <div className="py-8 text-center">
-                        <div className="w-12 h-12 bg-emerald-950 text-emerald-400 rounded-full flex items-center justify-center mx-auto mb-3"><CheckCircleIcon className="w-6 h-6"/></div>
+                      <div className="py-10 text-center bg-[#0D1222] rounded-2xl border border-[#1E294D]">
+                        <div className="w-14 h-14 sm:w-12 sm:h-12 bg-emerald-950 text-emerald-400 rounded-full flex items-center justify-center mx-auto mb-4 border border-emerald-500/30"><CheckCircleIcon className="w-7 h-7 sm:w-6 sm:h-6"/></div>
                         <h4 className="text-sm font-black text-white">결정 전송 완료</h4>
-                        <p className="text-[10px] text-slate-400 mt-2">강사의 라운드 마감을 대기 중입니다.</p>
+                        <p className="text-[11px] sm:text-[10px] text-slate-400 mt-2 px-4 leading-relaxed font-bold">강사의 라운드 마감을 대기 중입니다.</p>
                       </div>
                     ) : gameState.status !== 'submitting' ? (
-                      <div className="py-8 text-center text-slate-500">
-                        <LockIcon className="mx-auto mb-2 opacity-50"/>
-                        <p className="text-xs font-black">강사의 지시 대기 중...</p>
+                      <div className="py-12 text-center text-slate-500 bg-[#0D1222] rounded-2xl border border-dashed border-[#1E294D]">
+                        <LockIcon className="mx-auto mb-3 opacity-50 w-8 h-8 sm:w-6 sm:h-6"/>
+                        <p className="text-sm sm:text-xs font-black">강사의 지시 대기 중...</p>
                       </div>
                     ) : (
-                      <div>
-                        <div className="flex justify-center space-x-3 mb-6 min-h-[80px]">
-                          {selectedCards.map(c => (
-                            <div key={c.id} onClick={() => handleSelectCard(c)} className={`w-14 h-20 rounded-xl border flex items-center justify-center text-xl font-black cursor-pointer shadow-lg ${c.color==='red'?'border-red-500 bg-red-950 text-red-400':'border-slate-500 bg-slate-900 text-white'}`}>{c.value}</div>
-                          ))}
+                      <div className="w-full">
+                        {/* 카드 선택 영역 */}
+                        <div className="flex justify-center space-x-4 mb-8 min-h-[100px] bg-[#0D1222] p-4 rounded-2xl border border-[#1E294D]">
+                          {selectedCards.length === 0 ? (
+                            <span className="text-[11px] text-slate-500 font-bold self-center">아래에서 카드 2장을 탭하여 선택하세요.</span>
+                          ) : (
+                            selectedCards.map(c => (
+                              <div key={c.id} onClick={() => handleSelectCard(c)} className={`w-16 h-24 sm:w-14 sm:h-20 rounded-xl border flex flex-col justify-between p-2 font-mono font-black cursor-pointer shadow-lg transform active:scale-90 transition-transform ${c.color==='red'?'border-red-500 bg-red-950 text-red-400':'border-slate-500 bg-slate-900 text-white'}`}>
+                                <span className="text-[9px] text-left leading-none">{c.value}</span>
+                                <span className="text-2xl sm:text-xl text-center leading-none">{c.value}</span>
+                                <span className="text-[9px] text-right leading-none">{c.value}</span>
+                              </div>
+                            ))
+                          )}
                         </div>
+                        
                         {selectedCards.length === 2 && (
-                          <button onClick={handlePromptSubmitCards} className="w-full py-3 mb-6 bg-indigo-600 text-white font-black rounded-xl">최종 전송 (합산: {selectedCards[0].value + selectedCards[1].value})</button>
+                          <button onClick={handlePromptSubmitCards} className="w-full py-4 sm:py-3 mb-8 bg-indigo-600 text-white font-black rounded-xl text-sm sm:text-xs shadow-lg active:scale-95 transition-transform">
+                            최종 전송 (합산 가치: {selectedCards[0].value + selectedCards[1].value})
+                          </button>
                         )}
-                        <div className="grid grid-cols-6 gap-2">
+                        
+                        {/* 카드 덱 렌더링 */}
+                        <div className="grid grid-cols-5 sm:grid-cols-6 gap-2 sm:gap-2.5 w-full">
                           {team.deck.map(card => {
                             const isSel = selectedCards.some(sc => sc.id === card.id);
                             return (
-                              <button key={card.id} onClick={() => handleSelectCard(card)} className={`aspect-[2/3] rounded-lg border font-black text-sm transition-transform active:scale-95 ${isSel ? 'border-indigo-400 ring-2 ring-indigo-500/50 scale-105' : card.color==='red'?'border-red-900 text-red-400 bg-red-950/20':'border-slate-800 text-white bg-slate-900/50'}`}>{card.value}</button>
+                              <button key={card.id} onClick={() => handleSelectCard(card)} className={`aspect-[2/3] rounded-lg border font-black text-base sm:text-sm transition-transform active:scale-90 flex flex-col justify-between p-1.5 ${isSel ? 'border-indigo-400 ring-2 ring-indigo-500/50 scale-105 shadow-md bg-indigo-950/20' : card.color==='red'?'border-red-900 text-red-400 bg-red-950/20':'border-slate-800 text-white bg-slate-900/50'}`}>
+                                <span className="text-[8px] text-left leading-none font-mono">{card.value}</span>
+                                <span className="text-center leading-none">{card.value}</span>
+                                <span className="text-[8px] text-right leading-none font-mono">{card.value}</span>
+                              </button>
                             );
                           })}
                         </div>
@@ -885,60 +977,73 @@
             </main>
           )}
 
+          {/* ADMIN */}
           {userRole === 'admin' && (
-            <main className="flex-grow max-w-6xl w-full mx-auto p-4 space-y-6">
+            <main className="w-full flex-grow max-w-6xl mx-auto p-4 sm:p-6 lg:p-8 space-y-6 box-border">
               
               {!gameState.isStarted ? (
-                <div className="bg-[#121829] border border-[#1E294D] rounded-3xl p-8 text-center">
-                  <h3 className="text-xl font-black text-white">시뮬레이션 가동 설정</h3>
-                  <div className="text-5xl font-mono text-indigo-400 my-6 font-black tracking-widest">{gameState.gameCode}</div>
-                  <p className="text-xs text-slate-400 mb-6">참가자들에게 위 코드를 공유하여 입장하도록 안내하세요.</p>
-                  <div className="grid grid-cols-5 gap-2 max-w-sm mx-auto mb-8">
-                    {[2,3,4,5,6,7,8,9,10,11].map(n => (
-                      <button key={n} onClick={() => setSetupTeamCount(n)} className={`py-2 rounded-xl text-xs font-black ${setupTeamCount===n?'bg-indigo-600 text-white':'bg-[#161D30] text-slate-400 border border-[#1E294D]'}`}>{n}팀</button>
+                <div className="w-full bg-[#121829] border border-[#1E294D] rounded-3xl p-6 sm:p-8 text-center shadow-xl">
+                  <h3 className="text-lg sm:text-xl font-black text-white mb-2">시뮬레이션 기동 설정</h3>
+                  <div className="text-5xl sm:text-6xl font-mono text-indigo-400 my-8 font-black tracking-widest">{gameState.gameCode}</div>
+                  <p className="text-[11px] sm:text-xs text-slate-400 mb-8 font-bold">참가자 기기에서 접속 링크로 접속하여 위 코드를 기입하도록 안내하세요.</p>
+                  
+                  <label className="block text-[10px] text-slate-500 font-black mb-3">참여 그룹(팀) 규모 설정</label>
+                  <div className="grid grid-cols-4 sm:grid-cols-6 gap-2 max-w-lg mx-auto mb-8">
+                    {[2,3,4,5,6,7,8,9,10,11,12].map(n => (
+                      <button key={n} onClick={() => setSetupTeamCount(n)} className={`py-3 sm:py-2 rounded-xl text-xs sm:text-sm font-black transition-all ${setupTeamCount===n?'bg-indigo-600 text-white shadow-md':'bg-[#161D30] text-slate-400 border border-[#1E294D]'}`}>{n}팀</button>
                     ))}
                   </div>
-                  <button onClick={handleFinalCommenceSimulation} className="px-8 py-3 bg-emerald-600 text-white font-black rounded-xl text-sm">시뮬레이션 시작</button>
+                  <button onClick={handleFinalCommenceSimulation} className="w-full sm:w-auto px-10 py-4 sm:py-3 bg-gradient-to-r from-emerald-600 to-emerald-700 text-white font-black rounded-xl text-sm shadow-lg">시뮬레이션 시작</button>
                 </div>
               ) : (
-                <div className="space-y-6">
-                  {/* ADMIN CONTROL PANEL */}
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <button onClick={handleStartSubmission} disabled={gameState.status!=='idle'} className="py-3 bg-indigo-600 disabled:opacity-50 text-white font-black rounded-xl text-xs">의사결정 개시</button>
-                    <button onClick={handleCloseSubmission} disabled={gameState.status!=='submitting'} className="py-3 bg-rose-600 disabled:opacity-50 text-white font-black rounded-xl text-xs">의사결정 마감</button>
-                    <button onClick={handleRevealResults} disabled={gameState.status!=='closed'} className="py-3 bg-cyan-600 disabled:opacity-50 text-white font-black rounded-xl text-xs">정산 및 공개</button>
-                    <button onClick={handleNextRound} disabled={gameState.status!=='revealed'} className="py-3 bg-emerald-600 disabled:opacity-50 text-white font-black rounded-xl text-xs">다음 라운드로</button>
+                <div className="space-y-6 w-full">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 w-full">
+                    <button onClick={handleStartSubmission} disabled={gameState.status!=='idle'} className="py-4 sm:py-3 bg-indigo-600 disabled:opacity-30 text-white font-black rounded-xl text-xs sm:text-sm shadow-md flex items-center justify-center space-x-1"><PlayIcon /><span>의사결정 개시</span></button>
+                    <button onClick={handleCloseSubmission} disabled={gameState.status!=='submitting'} className="py-4 sm:py-3 bg-[#161D30] border border-[#1E294D] disabled:opacity-30 text-slate-300 font-black rounded-xl text-xs sm:text-sm shadow-md flex items-center justify-center space-x-1"><SquareIcon /><span>제출 마감</span></button>
+                    <button onClick={handleRevealResults} disabled={gameState.status!=='closed'} className="py-4 sm:py-3 bg-cyan-600 disabled:opacity-30 text-white font-black rounded-xl text-xs sm:text-sm shadow-md flex items-center justify-center space-x-1"><AwardIcon /><span>정산 및 결과</span></button>
+                    <button onClick={handleNextRound} disabled={gameState.status!=='revealed'} className="py-4 sm:py-3 bg-violet-600 disabled:opacity-30 text-white font-black rounded-xl text-xs sm:text-sm shadow-md flex items-center justify-center space-x-1"><span>다음 라운드로</span><ChevronRightIcon /></button>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {/* Team Monitoring */}
-                    <div className="bg-[#121829] border border-[#1E294D] rounded-2xl p-5">
-                      <h3 className="text-sm font-black text-white mb-4">팀 실시간 전송 모니터링</h3>
-                      <div className="space-y-2">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full">
+                    {/* 팀 모니터링 패널 */}
+                    <div className="bg-[#121829] border border-[#1E294D] rounded-3xl p-5 sm:p-6 shadow-xl w-full">
+                      <h3 className="text-sm font-black text-white mb-4">팀 모니터링</h3>
+                      <div className="space-y-2.5 max-h-[400px] overflow-y-auto pr-2 w-full">
                         {gameState.teams.map(team => {
                           const hasSub = team.history[gameState.currentRound]?.cards?.length > 0;
                           return (
-                            <div key={team.id} className="flex justify-between items-center bg-[#161D30] border border-[#1E294D] p-3 rounded-xl">
-                              <span className="text-xs font-black text-slate-200">{team.name}</span>
-                              {hasSub ? <span className="text-[10px] font-black text-emerald-400 bg-emerald-950 px-2 py-1 rounded">수신 완료</span> : <span className="text-[10px] text-slate-500">대기 중...</span>}
+                            <div key={team.id} className="flex flex-col sm:flex-row justify-between sm:items-center bg-[#161D30] border border-[#1E294D] p-3 sm:p-4 rounded-2xl w-full space-y-3 sm:space-y-0">
+                              <input type="text" value={team.name} onChange={(e) => handleUpdateTeamName(team.id, e.target.value)} className="text-xs sm:text-sm font-black text-slate-200 bg-transparent border-b border-transparent focus:border-indigo-400 outline-none w-full sm:w-1/2" title="팀명 변경" />
+                              <div className="flex items-center justify-between sm:justify-end w-full sm:w-1/2">
+                                {hasSub ? <span className="text-[10px] font-black text-emerald-400 bg-emerald-950/80 px-2.5 py-1 rounded-lg border border-emerald-500/20">수신 완료</span> : <span className="text-[10px] text-slate-500 font-bold bg-[#121829] px-2.5 py-1 rounded-lg">대기 중</span>}
+                              </div>
                             </div>
                           )
                         })}
                       </div>
                     </div>
-                    {/* Leaderboard */}
-                    <div className="bg-[#121829] border border-[#1E294D] rounded-2xl p-5">
-                      <h3 className="text-sm font-black text-white mb-4">종합 순위표</h3>
-                      <div className="space-y-2">
-                        {[...gameState.teams].sort((a,b)=>b.score-a.score).map((team, idx) => (
-                          <div key={team.id} className="flex justify-between items-center bg-[#161D30] border border-[#1E294D] p-3 rounded-xl">
-                            <div className="flex items-center space-x-2">
-                              <span className="w-5 h-5 bg-indigo-950 text-indigo-400 text-[10px] font-black flex justify-center items-center rounded">{idx+1}</span>
-                              <span className="text-xs font-black text-slate-200">{team.name}</span>
+
+                    {/* 순위표 패널 (스크롤 지원) */}
+                    <div className="bg-[#121829] border border-[#1E294D] rounded-3xl p-5 sm:p-6 shadow-xl w-full flex flex-col">
+                      <div className="flex justify-between items-center mb-4">
+                        <h3 className="text-sm font-black text-white">종합 순위표</h3>
+                        <span className="text-[10px] text-slate-500 font-bold">전체 누적치</span>
+                      </div>
+                      <div className="space-y-2.5 overflow-x-auto w-full">
+                        <div className="min-w-[300px]">
+                          {[...gameState.teams].sort((a,b)=>b.score-a.score).map((team, idx) => (
+                            <div key={team.id} className="flex justify-between items-center bg-[#161D30] border border-[#1E294D] p-3 sm:p-4 rounded-2xl mb-2 w-full">
+                              <div className="flex items-center space-x-3">
+                                <span className={`w-6 h-6 rounded-lg text-[10px] font-black flex justify-center items-center ${idx === 0 ? 'bg-indigo-500/30 text-indigo-300' : 'bg-[#121829] text-slate-500'}`}>{idx+1}</span>
+                                <span className="text-xs font-black text-slate-200">{team.name}</span>
+                              </div>
+                              <div className="flex items-center space-x-2">
+                                <span className="text-xs sm:text-sm font-mono font-black text-white">{team.score.toLocaleString()}P</span>
+                                <button onClick={() => { setEditingScoreTeamId(team.id); setEditScoreValue(team.history[gameState.currentRound]?.score || '0'); }} className="p-1.5 text-slate-500 hover:text-white transition-colors" title="성적 임의 조정"><EditIcon /></button>
+                              </div>
                             </div>
-                            <span className="text-xs font-black text-white">{team.score}P</span>
-                          </div>
-                        ))}
+                          ))}
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -946,7 +1051,11 @@
               )}
             </main>
           )}
-
+          
+          {/* 하단 저작권 푸터 (모바일 환경 고려) */}
+          <footer className="w-full text-center py-6 pb-8 border-t border-[#1E294D]/50 bg-[#0A0E1A]">
+            <p className="text-[9px] sm:text-[10px] text-slate-600 font-bold">© 2026 Market Simulation Engine. All Rights Reserved.</p>
+          </footer>
         </div>
       );
     }
